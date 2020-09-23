@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package eventprocapi;
+
+message ListHandlersRequest {
+    string hook = 1;
+}
+
+message ListHandlersResponse {
+    repeated Handler handlers = 1;
+}
+
+// todo: add stat object?
+message Handler {
+    int32 id = 1;
+    string hook = 2;
+    string name = 3;
+    int32 version = 4;
+    string callable = 5;
+    string notify_on_success = 6;
+    string notify_on_failure = 7;
+    string created_by = 8;
+    int64 created_at = 9;
+    string updated_by = 10;
+    int64 updated_at = 11;
+}
+
+message ListHooksRequest {}
+
+message ListHooksResponse {
+    repeated Hook hooks = 1;
+}
+
+// todo: add stat object?
+message Hook {
+    string name = 1;
+}
+
+
+message Registration {
+    string name = 1;
+    string hook = 2;
+    repeated string flag = 3;
+    bytes blob = 4;  // limit is 4GB
+    string notify_on_success = 5;
+    string notify_on_failure = 6;
+    string dependencies = 7;
+    string user = 8;
+    string api_key = 9;
+}
+
+message RegisterRequest {
+    Registration registration = 1;    
+}
+
+message RegisterResponse {
+    Handler handler = 1;    
+}
+
+message DeregisterRequest {
+    int32 id = 1;
+}
+
+message DeregisterResponse {
+    int32 id = 1;
+}
+
+
+service EventProcessingService {
+	rpc ListHooks(ListHooksRequest) returns (ListHooksResponse) {}
+	rpc ListHandlers(ListHandlersRequest) returns (ListHandlersResponse) {}
+	rpc Register(RegisterRequest) returns (RegisterResponse) {}
+    rpc Deregister(DeregisterRequest) returns (DeregisterResponse) {}
+}
+
+// regenerate the grpc code with the following command
+// protoc -I/usr/local/include -I. --go_out=plugins=grpc:. api.proto
