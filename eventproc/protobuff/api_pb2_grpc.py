@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import api_pb2 as api__pb2
+import eventproc.protobuff.api_pb2 as api__pb2
 
 
 class EventProcessingServiceStub(object):

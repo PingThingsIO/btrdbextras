@@ -19,7 +19,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   syntax='proto3',
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_pb=b'\n\tapi.proto\x12\x0c\x65ventprocapi\"#\n\x13ListHandlersRequest\x12\x0c\n\x04hook\x18\x01 \x01(\t\"?\n\x14ListHandlersResponse\x12\'\n\x08handlers\x18\x01 \x03(\x0b\x32\x15.eventprocapi.Handler\"\xda\x01\n\x07Handler\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04hook\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x05\x12\x10\n\x08\x63\x61llable\x18\x05 \x01(\t\x12\x19\n\x11notify_on_success\x18\x06 \x01(\t\x12\x19\n\x11notify_on_failure\x18\x07 \x01(\t\x12\x12\n\ncreated_by\x18\x08 \x01(\t\x12\x12\n\ncreated_at\x18\t \x01(\x03\x12\x12\n\nupdated_by\x18\n \x01(\t\x12\x12\n\nupdated_at\x18\x0b \x01(\x03\"\x12\n\x10ListHooksRequest\"6\n\x11ListHooksResponse\x12!\n\x05hooks\x18\x01 \x03(\x0b\x32\x12.eventprocapi.Hook\"\x14\n\x04Hook\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb1\x01\n\x0cRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04hook\x18\x02 \x01(\t\x12\x0c\n\x04\x66lag\x18\x03 \x03(\t\x12\x0c\n\x04\x62lob\x18\x04 \x01(\x0c\x12\x19\n\x11notify_on_success\x18\x05 \x01(\t\x12\x19\n\x11notify_on_failure\x18\x06 \x01(\t\x12\x14\n\x0c\x64\x65pendencies\x18\x07 \x01(\t\x12\x0c\n\x04user\x18\x08 \x01(\t\x12\x0f\n\x07\x61pi_key\x18\t \x01(\t\"C\n\x0fRegisterRequest\x12\x30\n\x0cregistration\x18\x01 \x01(\x0b\x32\x1a.eventprocapi.Registration\":\n\x10RegisterResponse\x12&\n\x07handler\x18\x01 \x01(\x0b\x32\x15.eventprocapi.Handler\"\x1f\n\x11\x44\x65registerRequest\x12\n\n\x02id\x18\x01 \x01(\x05\" \n\x12\x44\x65registerResponse\x12\n\n\x02id\x18\x01 \x01(\x05\x32\xe1\x02\n\x16\x45ventProcessingService\x12N\n\tListHooks\x12\x1e.eventprocapi.ListHooksRequest\x1a\x1f.eventprocapi.ListHooksResponse\"\x00\x12W\n\x0cListHandlers\x12!.eventprocapi.ListHandlersRequest\x1a\".eventprocapi.ListHandlersResponse\"\x00\x12K\n\x08Register\x12\x1d.eventprocapi.RegisterRequest\x1a\x1e.eventprocapi.RegisterResponse\"\x00\x12Q\n\nDeregister\x12\x1f.eventprocapi.DeregisterRequest\x1a .eventprocapi.DeregisterResponse\"\x00\x62\x06proto3'
+  serialized_pb=b'\n\tapi.proto\x12\x0c\x65ventprocapi\"#\n\x13ListHandlersRequest\x12\x0c\n\x04hook\x18\x01 \x01(\t\"?\n\x14ListHandlersResponse\x12\'\n\x08handlers\x18\x01 \x03(\x0b\x32\x15.eventprocapi.Handler\"\xe8\x01\n\x07Handler\x12\n\n\x02id\x18\x01 \x01(\x05\x12\x0c\n\x04hook\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x0f\n\x07version\x18\x04 \x01(\x05\x12\x10\n\x08\x63\x61llable\x18\x05 \x01(\t\x12\x0c\n\x04\x66lag\x18\x06 \x03(\t\x12\x19\n\x11notify_on_success\x18\x07 \x01(\t\x12\x19\n\x11notify_on_failure\x18\x08 \x01(\t\x12\x12\n\ncreated_by\x18\t \x01(\t\x12\x12\n\ncreated_at\x18\n \x01(\x03\x12\x12\n\nupdated_by\x18\x0b \x01(\t\x12\x12\n\nupdated_at\x18\x0c \x01(\x03\"\x12\n\x10ListHooksRequest\"6\n\x11ListHooksResponse\x12!\n\x05hooks\x18\x01 \x03(\x0b\x32\x12.eventprocapi.Hook\"\x14\n\x04Hook\x12\x0c\n\x04name\x18\x01 \x01(\t\"\xb2\x01\n\x0cRegistration\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0c\n\x04hook\x18\x02 \x01(\t\x12\r\n\x05\x66lags\x18\x03 \x03(\t\x12\x0c\n\x04\x62lob\x18\x04 \x01(\x0c\x12\x19\n\x11notify_on_success\x18\x05 \x01(\t\x12\x19\n\x11notify_on_failure\x18\x06 \x01(\t\x12\x14\n\x0c\x64\x65pendencies\x18\x07 \x01(\t\x12\x0c\n\x04user\x18\x08 \x01(\t\x12\x0f\n\x07\x61pi_key\x18\t \x01(\t\"C\n\x0fRegisterRequest\x12\x30\n\x0cregistration\x18\x01 \x01(\x0b\x32\x1a.eventprocapi.Registration\":\n\x10RegisterResponse\x12&\n\x07handler\x18\x01 \x01(\x0b\x32\x15.eventprocapi.Handler\"\x1f\n\x11\x44\x65registerRequest\x12\n\n\x02id\x18\x01 \x01(\x05\" \n\x12\x44\x65registerResponse\x12\n\n\x02id\x18\x01 \x01(\x05\x32\xe1\x02\n\x16\x45ventProcessingService\x12N\n\tListHooks\x12\x1e.eventprocapi.ListHooksRequest\x1a\x1f.eventprocapi.ListHooksResponse\"\x00\x12W\n\x0cListHandlers\x12!.eventprocapi.ListHandlersRequest\x1a\".eventprocapi.ListHandlersResponse\"\x00\x12K\n\x08Register\x12\x1d.eventprocapi.RegisterRequest\x1a\x1e.eventprocapi.RegisterResponse\"\x00\x12Q\n\nDeregister\x12\x1f.eventprocapi.DeregisterRequest\x1a .eventprocapi.DeregisterResponse\"\x00\x62\x06proto3'
 )
 
 
@@ -133,43 +133,50 @@ _HANDLER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='notify_on_success', full_name='eventprocapi.Handler.notify_on_success', index=5,
-      number=6, type=9, cpp_type=9, label=1,
-      has_default_value=False, default_value=b"".decode('utf-8'),
+      name='flag', full_name='eventprocapi.Handler.flag', index=5,
+      number=6, type=9, cpp_type=9, label=3,
+      has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='notify_on_failure', full_name='eventprocapi.Handler.notify_on_failure', index=6,
+      name='notify_on_success', full_name='eventprocapi.Handler.notify_on_success', index=6,
       number=7, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='created_by', full_name='eventprocapi.Handler.created_by', index=7,
+      name='notify_on_failure', full_name='eventprocapi.Handler.notify_on_failure', index=7,
       number=8, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='created_at', full_name='eventprocapi.Handler.created_at', index=8,
-      number=9, type=3, cpp_type=2, label=1,
-      has_default_value=False, default_value=0,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
-    _descriptor.FieldDescriptor(
-      name='updated_by', full_name='eventprocapi.Handler.updated_by', index=9,
-      number=10, type=9, cpp_type=9, label=1,
+      name='created_by', full_name='eventprocapi.Handler.created_by', index=8,
+      number=9, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=b"".decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='updated_at', full_name='eventprocapi.Handler.updated_at', index=10,
-      number=11, type=3, cpp_type=2, label=1,
+      name='created_at', full_name='eventprocapi.Handler.created_at', index=9,
+      number=10, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='updated_by', full_name='eventprocapi.Handler.updated_by', index=10,
+      number=11, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=b"".decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
+    _descriptor.FieldDescriptor(
+      name='updated_at', full_name='eventprocapi.Handler.updated_at', index=11,
+      number=12, type=3, cpp_type=2, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -187,7 +194,7 @@ _HANDLER = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=130,
-  serialized_end=348,
+  serialized_end=362,
 )
 
 
@@ -211,8 +218,8 @@ _LISTHOOKSREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=350,
-  serialized_end=368,
+  serialized_start=364,
+  serialized_end=382,
 )
 
 
@@ -243,8 +250,8 @@ _LISTHOOKSRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=370,
-  serialized_end=424,
+  serialized_start=384,
+  serialized_end=438,
 )
 
 
@@ -275,8 +282,8 @@ _HOOK = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=426,
-  serialized_end=446,
+  serialized_start=440,
+  serialized_end=460,
 )
 
 
@@ -303,7 +310,7 @@ _REGISTRATION = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='flag', full_name='eventprocapi.Registration.flag', index=2,
+      name='flags', full_name='eventprocapi.Registration.flags', index=2,
       number=3, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -363,8 +370,8 @@ _REGISTRATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=449,
-  serialized_end=626,
+  serialized_start=463,
+  serialized_end=641,
 )
 
 
@@ -395,8 +402,8 @@ _REGISTERREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=628,
-  serialized_end=695,
+  serialized_start=643,
+  serialized_end=710,
 )
 
 
@@ -427,8 +434,8 @@ _REGISTERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=697,
-  serialized_end=755,
+  serialized_start=712,
+  serialized_end=770,
 )
 
 
@@ -459,8 +466,8 @@ _DEREGISTERREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=757,
-  serialized_end=788,
+  serialized_start=772,
+  serialized_end=803,
 )
 
 
@@ -491,8 +498,8 @@ _DEREGISTERRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=790,
-  serialized_end=822,
+  serialized_start=805,
+  serialized_end=837,
 )
 
 _LISTHANDLERSRESPONSE.fields_by_name['handlers'].message_type = _HANDLER
@@ -598,8 +605,8 @@ _EVENTPROCESSINGSERVICE = _descriptor.ServiceDescriptor(
   index=0,
   serialized_options=None,
   create_key=_descriptor._internal_create_key,
-  serialized_start=825,
-  serialized_end=1178,
+  serialized_start=840,
+  serialized_end=1193,
   methods=[
   _descriptor.MethodDescriptor(
     name='ListHooks',

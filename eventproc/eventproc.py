@@ -14,16 +14,22 @@ class Service(object):
         self.channel = channel
         self.stub = api_pb2_grpc.EventProcessingServiceStub(channel)
 
+    def ListHooks(self):
+        params = api_pb2.ListHooksRequest()
+        return [r.name for r in self.stub.ListHooks(params).hooks]
+
     def ListHandlers(self):
         params = api_pb2.ListHandlersRequest()
         for result in self.stub.ListHandlers(params):
-            print(result)
+            yield result
 
 
 
 
 def hooks():
     conn = connect()
+    s = Service(conn)
+    return s.ListHooks()
 
 
 # def register(func):
@@ -42,3 +48,4 @@ def hooks():
 #             return f(*args, **kw)
 #         return f_foo
 #     return wrap
+
