@@ -28,10 +28,10 @@ clean:
 # Generate new grpc code
 grpc:
 	@echo Generating files:
-	python -m grpc_tools.protoc -I eventproc/protobuff --python_out=eventproc/protobuff --grpc_python_out=eventproc/protobuff eventproc/protobuff/api.proto
+	python -m grpc_tools.protoc -I btrdbextras/eventproc/protobuff --python_out=btrdbextras/eventproc/protobuff --grpc_python_out=btrdbextras/eventproc/protobuff btrdbextras/eventproc/protobuff/api.proto
 	@echo
 	@echo Fixing import statements:
-	sed -i'.bak' 's/api_pb2 as api__pb2/eventproc.protobuff.api_pb2 as api__pb2/' eventproc/protobuff/api_pb2_grpc.py
+	sed -i'.bak' 's/api_pb2 as api__pb2/btrdbextras.eventproc.protobuff.api_pb2 as api__pb2/' btrdbextras/eventproc/protobuff/api_pb2_grpc.py
 
 
 # Targets for testing

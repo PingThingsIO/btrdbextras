@@ -1,14 +1,14 @@
 # eventproc.conn
-# Connection related objects 
+# Connection related objects
 #
 # Author:   PingThings
-# Created:  
+# Created:
 #
 # For license information, see LICENSE.txt
 # ID: conn.py [] allen@pingthings.io $
 
 """
-Connection related objects 
+Connection related objects
 """
 
 ##########################################################################
@@ -16,12 +16,7 @@ Connection related objects
 ##########################################################################
 
 import os
-import re
-import json
-import uuid as uuidlib
-
 import grpc
-from grpc._cython.cygrpc import CompressionAlgorithm
 
 PATH_PREFIX="/eventproc"
 
