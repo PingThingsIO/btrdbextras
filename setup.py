@@ -22,6 +22,8 @@ import codecs
 from setuptools import setup
 from setuptools import find_packages
 
+from btrdbextras import __version__
+
 ##########################################################################
 ## Package Information
 ##########################################################################
@@ -82,17 +84,6 @@ def read(*parts):
         return f.read()
 
 
-def get_version(path=VERSION_PATH):
-    """
-    Reads the python file defined in the VERSION_PATH to find the get_version
-    function, and executes it to ensure that it is loaded correctly. Separating
-    the version in this way ensures no additional code is executed.
-    """
-    namespace = {}
-    exec(read(path), namespace)
-    return namespace['get_version'](short=True)
-
-
 def get_requires(path=REQUIRE_PATH):
     """
     Yields a generator of requirements as defined by the REQUIRE_PATH which
@@ -137,11 +128,11 @@ config = {
     "maintainer_email": EMAIL,
     "project_urls": {
         "Documentation": DOCS_URL,
-        "Download": "{}/tarball/v{}".format(REPOSITORY, get_version()),
+        "Download": "{}/tarball/v{}".format(REPOSITORY, __version__),
         "Source": REPOSITORY,
         "Tracker": "{}/issues".format(REPOSITORY),
     },
-    "download_url": "{}/tarball/v{}".format(REPOSITORY, get_version()),
+    "download_url": "{}/tarball/v{}".format(REPOSITORY, __version__),
     "packages": find_packages(where=PROJECT, exclude=EXCLUDES),
     "package_data": {
         "btrdb": ["grpcinterface/btrdb.proto"],

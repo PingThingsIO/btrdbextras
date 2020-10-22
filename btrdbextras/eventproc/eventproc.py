@@ -21,12 +21,38 @@ from collections import namedtuple
 import dill
 from btrdb.utils.timez import ns_to_datetime
 
-from btrdbextras.eventproc.conn import connect
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister']
+
+import grpc
+
+PATH_PREFIX="/eventproc"
+
+##########################################################################
+## Helper Functions
+##########################################################################
+
+def connect(conn):
+    parts = conn.endpoint.split(":", 2)
+    endpoint = conn.endpoint + PATH_PREFIX
+    apikey = conn.apikey
+
+    if len(parts) != 2:
+        raise ValueError("expecting address:port")
+
+    if apikey is None or apikey == "":
+        raise ValueError("must supply an API key")
+
+    return grpc.secure_channel(
+        endpoint,
+        grpc.composite_channel_credentials(
+            grpc.ssl_channel_credentials(None),
+            grpc.access_token_call_credentials(apikey)
+        )
+    )
 
 
 ##########################################################################
@@ -100,57 +126,63 @@ class Service(object):
 ## Public Functions
 ##########################################################################
 
-def hooks():
+def hooks(conn):
     """
     List registered hooks.
+
+    Parameters
+    ----------
+    conn: Connection
+        btrdbextras Connection object containing a valid address and api key.
     """
-    conn = connect()
-    s = Service(conn)
+    s = Service(connect(conn))
     return s.ListHooks()
 
-def list_handlers(hook=""):
+def list_handlers(conn, hook=""):
     """
     List registered handlers.  An optional hook name is allowed to filter
     results.
 
     Parameters
     ----------
+    conn: Connection
+        btrdbextras Connection object containing a valid address and api key.
     hook: str
         Optional hook name to filter registered handlers.
 
     """
-    s = Service(connect())
+    s = Service(connect(conn))
     return [Handler.from_grpc(h) for h in s.ListHandlers(hook)]
 
 
-def deregister(handler_id):
+def deregister(conn, handler_id):
     """
     Removes and existing event handler by ID.
 
     Parameters
     ----------
-    id: int
+    conn: Connection
+        btrdbextras Connection object containing a valid address and api key.
+    handler_id: int
         ID of the event handler to remove.
 
     """
-    s = Service(connect())
+    s = Service(connect(conn))
     return s.Deregister(handler_id)
 
 
-
-def register(name, hook, apikey, notify_on_success, notify_on_failure, flags=[]):
+def register(conn, name, hook, notify_on_success, notify_on_failure, flags=None):
     """
     decorator to submit (register) an event handler function
 
     Parameters
     ----------
+    conn: Connection
+        btrdbextras Connection object containing a valid address and api key.
     name: str
         Friendly name of this event handler for display purposes.
     hook: str
         Name of the hook that this event handler responds to.
-    apikey: str
-        BTrDB api key to use for context/secure access when the event handler
-        executes.
     notify_on_success: str
         Email address of user to notify when event handler completes successfully.
     notify_on_failure: str
@@ -161,14 +193,13 @@ def register(name, hook, apikey, notify_on_success, notify_on_failure, flags=[])
         execute.
 
     """
-
     # inner will actually receive the decorated func but we still have access
     # to the args & kwargs due to closure/scope.
     def inner(func):
 
         # call grpc service to register event handler
-        s = Service(connect())
-        _ = s.Register(name, hook, func, apikey, notify_on_success, notify_on_failure, flags)
+        s = Service(connect(conn))
+        _ = s.Register(name, hook, func, conn.apikey, notify_on_success, notify_on_failure, flags)
 
         # return original func back to user
         return func
