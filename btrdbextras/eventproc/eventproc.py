@@ -16,19 +16,15 @@ Event processing related functions.
 ##########################################################################
 
 import io
-# import functools
 from collections import namedtuple
 
-try:
-   import cPickle as pickle
-except:
-   import pickle
+import dill
+from btrdb.utils.timez import ns_to_datetime
 
 from btrdbextras.eventproc.conn import connect
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
-from btrdb.utils.timez import ns_to_datetime
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister']
 
@@ -74,15 +70,16 @@ class Service(object):
             yield result
 
     def Register(self, name, hook, func, apikey, notify_on_success, notify_on_failure, flags):
-
+        # convert decorated function to bytes
         buff = io.BytesIO()
-        blob = pickle.dump(func, buff)
+        dill.dump(func, buff)
+        buff.seek(0)
 
         params = api_pb2.RegisterRequest(
             registration=api_pb2.Registration(
             name=name,
             hook=hook,
-            blob=blob,
+            blob=buff.read(),
             api_key=apikey,
             notify_on_success=notify_on_success,
             notify_on_failure=notify_on_failure,
