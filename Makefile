@@ -54,8 +54,8 @@ install:
 
 # Deploy to PyPI
 deploy:
-	python setup.py register
-	twine upload dist/*
+	# python setup.py register
+	twine upload dist/* --verbose
 
 # Build html version of docs
 html:

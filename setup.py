@@ -35,10 +35,10 @@ AUTHOR       = "Allen Leis"
 EMAIL        = "allen@pingthings.io"
 MAINTAINER   = "Allen Leis"
 LICENSE      = "BSD-3-Clause"
-REPOSITORY   = "https://github.com/BTrDB/btrdb-python"
+REPOSITORY   = "https://github.com/PingThingsIO/btrdbextras"
 PACKAGE      = "btrdb"
-URL          = "http://btrdb.io/"
-DOCS_URL     = "https://btrdb.readthedocs.io/en/latest/"
+URL          = "https://btrdbextras.readthedocs.io/en/latest/"
+DOCS_URL     = "https://btrdbextras.readthedocs.io/en/latest/"
 
 ## Define the keywords
 KEYWORDS     = ('btrdb', 'timeseries', 'database')
@@ -56,6 +56,7 @@ CLASSIFIERS  = (
     'Programming Language :: Python',
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
     'Topic :: Database',
     'Topic :: Software Development :: Libraries :: Python Modules',
 )
