@@ -23,7 +23,3 @@ in Github!
    installing
    eventproc
    api
-
-stuff
-
-.. toctree::eventproc/overview

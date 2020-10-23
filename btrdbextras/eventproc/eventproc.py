@@ -59,7 +59,7 @@ def connect(conn):
 ## Helper Classes
 ##########################################################################
 
-HandlerBase = namedtuple("HandlerBase", "id name version notify_on_success notify_on_failure flags created_at created_by updated_at updated_by")
+HandlerBase = namedtuple("HandlerBase", "id name hook version notify_on_success notify_on_failure flags created_at created_by updated_at updated_by")
 
 class Handler(HandlerBase):
     """
@@ -70,7 +70,7 @@ class Handler(HandlerBase):
     @classmethod
     def from_grpc(cls, h):
         return cls(
-            h.id, h.name, h.version, h.notify_on_success, h.notify_on_failure,
+            h.id, h.name, h.hook, h.version, h.notify_on_success, h.notify_on_failure,
             h.flag, ns_to_datetime(h.created_at), h.created_by,
             ns_to_datetime(h.updated_at), h.updated_by
         )
@@ -95,7 +95,7 @@ class Service(object):
         for result in response.handlers:
             yield result
 
-    def Register(self, name, hook, func, apikey, notify_on_success, notify_on_failure, flags):
+    def Register(self, name, hook, func, apikey, notify_on_success, notify_on_failure, dependencies, flags):
         # convert decorated function to bytes
         buff = io.BytesIO()
         dill.dump(func, buff)
@@ -109,6 +109,7 @@ class Service(object):
             api_key=apikey,
             notify_on_success=notify_on_success,
             notify_on_failure=notify_on_failure,
+            dependencies=dependencies,
             flags=flags,
             )
         )
@@ -157,7 +158,7 @@ def list_handlers(conn, hook=""):
 
 def deregister(conn, handler_id):
     """
-    Removes and existing event handler by ID.
+    Removes an existing event handler by ID.
 
     Parameters
     ----------
@@ -168,10 +169,11 @@ def deregister(conn, handler_id):
 
     """
     s = Service(connect(conn))
-    return s.Deregister(handler_id)
+    h = s.Deregister(handler_id)
+    return h.id == handler_id
 
 
-def register(conn, name, hook, notify_on_success, notify_on_failure, flags=None):
+def register(conn, name, hook, notify_on_success, notify_on_failure, dependencies="", flags=None):
     """
     decorator to submit (register) an event handler function
 
@@ -188,6 +190,10 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, flags=None)
     notify_on_failure: str
         Email address of user to notify when event handler does not complete
         successfully.
+    dependencies: str
+        A string containing required libraries and versions.  Format should follow
+        a standard `pip freeze` or requirements.txt file.  The process running your
+        handler will `pip install -r` this content.
     flags: list of str
         Filtering flags that users can choose when identifying handlers to
         execute.
@@ -199,7 +205,7 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, flags=None)
 
         # call grpc service to register event handler
         s = Service(connect(conn))
-        _ = s.Register(name, hook, func, conn.apikey, notify_on_success, notify_on_failure, flags)
+        _ = s.Register(name, hook, func, conn.apikey, notify_on_success, notify_on_failure, dependencies, flags)
 
         # return original func back to user
         return func
