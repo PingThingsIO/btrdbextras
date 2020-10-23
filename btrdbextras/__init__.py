@@ -1,3 +1,3 @@
 from .conn import Connection
 
-__version__ = "5.11.0"
+__version__ = "v5.11.0"

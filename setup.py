@@ -114,7 +114,7 @@ def get_description_type(path=PKG_DESCRIBE):
 
 config = {
     "name": NAME,
-    "version": get_version(),
+    "version": __version__,
     "description": DESCRIPTION,
     "long_description": read(PKG_DESCRIBE),
     "long_description_content_type": get_description_type(PKG_DESCRIBE),
