@@ -1,0 +1,6 @@
+# GRPC / Protobuff related
+grpcio>=1.16.1
+grpcio-tools>=1.16.1
+
+# Serialization helpers
+dill==0.3.2

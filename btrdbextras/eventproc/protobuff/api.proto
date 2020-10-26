@@ -17,12 +17,13 @@ message Handler {
     string name = 3;
     int32 version = 4;
     string callable = 5;
-    string notify_on_success = 6;
-    string notify_on_failure = 7;
-    string created_by = 8;
-    int64 created_at = 9;
-    string updated_by = 10;
-    int64 updated_at = 11;
+    repeated string flag = 6;
+    string notify_on_success = 7;
+    string notify_on_failure = 8;
+    string created_by = 9;
+    int64 created_at = 10;
+    string updated_by = 11;
+    int64 updated_at = 12;
 }
 
 message ListHooksRequest {}
@@ -40,7 +41,7 @@ message Hook {
 message Registration {
     string name = 1;
     string hook = 2;
-    repeated string flag = 3;
+    repeated string flags = 3;
     bytes blob = 4;  // limit is 4GB
     string notify_on_success = 5;
     string notify_on_failure = 6;
@@ -67,11 +68,8 @@ message DeregisterResponse {
 
 
 service EventProcessingService {
-	rpc ListHooks(ListHooksRequest) returns (ListHooksResponse) {}
-	rpc ListHandlers(ListHandlersRequest) returns (ListHandlersResponse) {}
-	rpc Register(RegisterRequest) returns (RegisterResponse) {}
+    rpc ListHooks(ListHooksRequest) returns (ListHooksResponse) {}
+    rpc ListHandlers(ListHandlersRequest) returns (ListHandlersResponse) {}
+    rpc Register(RegisterRequest) returns (RegisterResponse) {}
     rpc Deregister(DeregisterRequest) returns (DeregisterResponse) {}
 }
-
-// regenerate the grpc code with the following command
-// protoc -I/usr/local/include -I. --go_out=plugins=grpc:. api.proto
