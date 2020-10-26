@@ -173,7 +173,7 @@ def deregister(conn, handler_id):
     return h.id == handler_id
 
 
-def register(conn, name, hook, notify_on_success, notify_on_failure, dependencies="", flags=None):
+def register(conn, name, hook, notify_on_success, notify_on_failure, flags=None):
     """
     decorator to submit (register) an event handler function
 
@@ -190,15 +190,14 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, dependencie
     notify_on_failure: str
         Email address of user to notify when event handler does not complete
         successfully.
-    dependencies: str
-        A string containing required libraries and versions.  Format should follow
-        a standard `pip freeze` or requirements.txt file.  The process running your
-        handler will `pip install -r` this content.
     flags: list of str
         Filtering flags that users can choose when identifying handlers to
-        execute.
+        execute. An empty list will match all flags.
 
     """
+    # placeholder for future dependency management feature
+    dependencies = ""
+
     # inner will actually receive the decorated func but we still have access
     # to the args & kwargs due to closure/scope.
     def inner(func):

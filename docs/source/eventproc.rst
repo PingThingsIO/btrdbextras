@@ -14,7 +14,7 @@ After your event handler is executed, an email is sent to the success or failure
 Dependencies
 ~~~~~~~~~~~~~~~~~~~
 
-Our platform will provide a base python 3.7.3 environment with which you can add any desired libraries installable with `pip`.  When registering an event handler you can provide the content for a requirements file as if you had run `pip freeze` at the command line.  We provide some standard libraries such as:
+Our platform will provide a base python 3.7.3 environment similar to our Jupyter servers. We provide some standard libraries such as:
 
 * btrdb
 * matplotlib
@@ -87,7 +87,7 @@ To submit a new event handler, you can use the `register` decorator around your 
     >>> help(register)
     Help on function register in module btrdbextras.eventproc.eventproc:
 
-    register(conn, name, hook, notify_on_success, notify_on_failure, dependencies, flags=None)
+    register(conn, name, hook, notify_on_success, notify_on_failure, flags=None)
         decorator to submit (register) an event handler function
 
         Parameters
@@ -103,13 +103,9 @@ To submit a new event handler, you can use the `register` decorator around your 
         notify_on_failure: str
             Email address of user to notify when event handler does not complete
             successfully.
-        dependencies: str
-            A string containing required libraries and versions.  Format should follow
-            a standard `pip freeze` or requirements.txt file.  The process running your
-            handler will `pip install -r` this content.
         flags: list of str
             Filtering flags that users can choose when identifying handlers to
-            execute.
+            execute. An empty list will match all flags.
 
 As you can see, this decorator does have required arguments.  A trivial example is shown below.
 
@@ -125,7 +121,6 @@ As you can see, this decorator does have required arguments.  A trivial example 
     ...     "ctingress.on_complete",
     ...     "success@example.com",
     ...     "failure@example.com",
-    ...     "scipy\nmatplotlib",
     ...     ["demo", "anomaly-detection"]
     ... )
     ... def trivial(btrdb, *args, **kwargs):
