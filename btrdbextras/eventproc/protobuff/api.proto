@@ -17,7 +17,7 @@ message Handler {
     string name = 3;
     int32 version = 4;
     string callable = 5;
-    repeated string flag = 6;
+    repeated string flags = 6;
     string notify_on_success = 7;
     string notify_on_failure = 8;
     string created_by = 9;
@@ -51,11 +51,11 @@ message Registration {
 }
 
 message RegisterRequest {
-    Registration registration = 1;    
+    Registration registration = 1;
 }
 
 message RegisterResponse {
-    Handler handler = 1;    
+    Handler handler = 1;
 }
 
 message DeregisterRequest {
@@ -65,7 +65,6 @@ message DeregisterRequest {
 message DeregisterResponse {
     int32 id = 1;
 }
-
 
 service EventProcessingService {
     rpc ListHooks(ListHooksRequest) returns (ListHooksResponse) {}

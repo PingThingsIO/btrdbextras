@@ -4,6 +4,7 @@ import grpc
 
 import btrdbextras.eventproc.protobuff.api_pb2 as api__pb2
 
+
 class EventProcessingServiceStub(object):
     """Missing associated documentation comment in .proto file."""
 
