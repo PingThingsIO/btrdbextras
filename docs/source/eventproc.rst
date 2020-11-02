@@ -28,10 +28,10 @@ Our platform will provide a base python 3.7.3 environment similar to our Jupyter
 * torch
 * torchvision
 
-Flags
+Tags
 ~~~~~~~~~~~~~~~~~~~
 
-Each event handler also includes a `flags` argument.  This allows the user to choose which event handlers should run in any given scenarion.  For instance, if submitting new COMTRADE files to the ingress, you can choose the "voltage-transform" flag to indicate that any event handlers registered with this flag will be executed.  Multiple flags can be added to your event handler, and users can choose from multiple flags to determine which handlers should run.  In the latter case, a logical OR is used such that any handler with at least one of the chosen flags will be scheduled for execution.
+Each event handler also includes a `tags` argument.  This allows the user to choose which event handlers should run in any given scenarion.  For instance, if submitting new COMTRADE files to the ingress, you can choose the "voltage-transform" tag to indicate that any event handlers registered with this tag will be executed.  Multiple tags can be added to your event handler, and users can choose from multiple tags to determine which handlers should run.  In the latter case, a logical OR is used such that any handler with at least one of the chosen tags will be scheduled for execution.
 
 Connections
 -----------
@@ -87,7 +87,7 @@ To submit a new event handler, you can use the `register` decorator around your 
     >>> help(register)
     Help on function register in module btrdbextras.eventproc.eventproc:
 
-    register(conn, name, hook, notify_on_success, notify_on_failure, flags=None)
+    register(conn, name, hook, notify_on_success, notify_on_failure, tags=None)
         decorator to submit (register) an event handler function
 
         Parameters
@@ -103,9 +103,9 @@ To submit a new event handler, you can use the `register` decorator around your 
         notify_on_failure: str
             Email address of user to notify when event handler does not complete
             successfully.
-        flags: list of str
-            Filtering flags that users can choose when identifying handlers to
-            execute. An empty list will match all flags.
+        tags: list of str
+            Filtering tags that users can choose when identifying handlers to
+            execute. An empty list will match all tags.
 
 As you can see, this decorator does have required arguments.  A trivial example is shown below.
 
@@ -121,7 +121,7 @@ As you can see, this decorator does have required arguments.  A trivial example 
     ...     hook="ctingress.on_complete",
     ...     notify_on_success="success@example.com",
     ...     notify_on_failure="failure@example.com",
-    ...     flags=["demo", "anomaly-detection"]
+    ...     tags=["demo", "anomaly-detection"]
     ... )
     ... def trivial(btrdb, *args, **kwargs):
     ...     print(args, kwargs)
@@ -143,7 +143,7 @@ To view the existing event handlers, call the `list_handlers` function and a lis
     >>> conn = Connection()
     >>>
     >>> list_handlers(conn)
-    [Handler(id=3, name='sample-73', hook='ctingress.on_complete', version=0, notify_on_success='success@example.com', notify_on_failure='failure@example.com', flags=['red', 'blue'], created_at=datetime.datetime(2020, 10, 21, 21, 35, 20, 365664, tzinfo=<UTC>), created_by='allen', updated_at=datetime.datetime(2020, 10, 21, 21, 35, 20, 365664, tzinfo=<UTC>), updated_by='allen')]
+    [Handler(id=3, name='sample-73', hook='ctingress.on_complete', version=0, notify_on_success='success@example.com', notify_on_failure='failure@example.com', tags=['red', 'blue'], created_at=datetime.datetime(2020, 10, 21, 21, 35, 20, 365664, tzinfo=<UTC>), created_by='allen', updated_at=datetime.datetime(2020, 10, 21, 21, 35, 20, 365664, tzinfo=<UTC>), updated_by='allen')]
 
 The `Handler` object is just a lightweight `namedtuple` and does not offer any functionality itself.
 
@@ -159,7 +159,7 @@ The remove an existing event handler, a `deregister` function is available.  It 
     >>> conn = Connection()
     >>>
     >>> list_handlers(conn)
-    [Handler(id=5, name='trivial-handler', hook='ctingress.on_complete', version=0, notify_on_success='success@example.com', notify_on_failure='failure@example.com', flags=['demo', 'anomaly-detection'], created_at=datetime.datetime(2020, 10, 23, 15, 6, 48, 390720, tzinfo=<UTC>), created_by='allen', updated_at=datetime.datetime(2020, 10, 23, 15, 6, 48, 390720, tzinfo=<UTC>), updated_by='allen')]
+    [Handler(id=5, name='trivial-handler', hook='ctingress.on_complete', version=0, notify_on_success='success@example.com', notify_on_failure='failure@example.com', tags=['demo', 'anomaly-detection'], created_at=datetime.datetime(2020, 10, 23, 15, 6, 48, 390720, tzinfo=<UTC>), created_by='allen', updated_at=datetime.datetime(2020, 10, 23, 15, 6, 48, 390720, tzinfo=<UTC>), updated_by='allen')]
     >>>
     >>> deregister(conn, 5)
     True

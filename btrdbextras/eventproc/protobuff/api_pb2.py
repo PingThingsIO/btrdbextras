@@ -133,7 +133,7 @@ _HANDLER = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='flag', full_name='eventprocapi.Handler.flag', index=5,
+      name='tag', full_name='eventprocapi.Handler.tag', index=5,
       number=6, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
@@ -310,7 +310,7 @@ _REGISTRATION = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR,  create_key=_descriptor._internal_create_key),
     _descriptor.FieldDescriptor(
-      name='flags', full_name='eventprocapi.Registration.flags', index=2,
+      name='tags', full_name='eventprocapi.Registration.tags', index=2,
       number=3, type=9, cpp_type=9, label=3,
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
