@@ -183,10 +183,12 @@ ctingress.on_complete
 
 Event handlers for this hook will be executed after processing an entire archive of COMTRADE files.  The signature for your event handler should match the following arguments:
 
-handler(btrdb, DataSets, File, RequestID, SubmittedAt):
-    This function that is executed after the COMTRADE ingress processes a new archive containing COMTRADE data.
+handler(btrdb, DataSets, File, RequestID, SubmittedAt, **kwargs):
+    This function is executed after the COMTRADE ingress processes a new archive containing COMTRADE data.  All inputs are sent as keyword arguments.
 
     Implementers will find the 'DataSets' parameter to be the most useful as it will contain a list of dictionaries representing the status of each COMTRADE config/data file pairing.  If an error is encountered this will be displayed in the 'Error' key.  Similarly, if no issues were encountered the 'Success' key will equal True.  The 'Name' key represents the config file path within the archive.  The 'Streams' key contians a list of dictionaries representing individual streams within the COMTRADE file. Key/values for stream status include the start and end time of the included data (StartNs, EndNs), the time ingress began processing the stream (ProcessedAtNs), and the UUID of the stream.
+
+    While listed in documentation, **kwargs is not needed at this time though further arguments may be added in the future.
 
     Parameters
     ----------
