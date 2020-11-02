@@ -110,11 +110,9 @@ class Service(object):
             notify_on_success=notify_on_success,
             notify_on_failure=notify_on_failure,
             dependencies=dependencies,
+            tags=tags,
             )
         )
-
-        if tags is not None and len(tags) > 0:
-            params.tags = tags
 
         response = self.stub.Register(params)
         if hasattr(response, "handler"):
