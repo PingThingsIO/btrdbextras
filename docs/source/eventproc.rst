@@ -57,7 +57,7 @@ However, the `Connection` object will also look for the `BTRDB_ENDPOINTS` and `B
 Interactions
 ------------
 
-The following calls can be made to platform to manage your event handling code.
+The following calls can be made to the platform to manage your event handling code.
 
 Listing Known Hooks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -116,12 +116,12 @@ As you can see, this decorator does have required arguments.  A trivial example 
     >>> conn = Connection()
     >>>
     >>> @register(
-    ...     conn,
-    ...     "trivial-handler",
-    ...     "ctingress.on_complete",
-    ...     "success@example.com",
-    ...     "failure@example.com",
-    ...     ["demo", "anomaly-detection"]
+    ...     conn=conn,
+    ...     name="trivial-handler",
+    ...     hook="ctingress.on_complete",
+    ...     notify_on_success="success@example.com",
+    ...     notify_on_failure="failure@example.com",
+    ...     flags=["demo", "anomaly-detection"]
     ... )
     ... def trivial(btrdb, *args, **kwargs):
     ...     print(args, kwargs)
@@ -170,7 +170,7 @@ Troubleshooting
 
 At the moment there are only a few troubleshooting tips however we expect to add more content over time.
 
-Most importantly, ensure you are using Python 3.7.3.  This is the version supplied by our Juupyter servers so you should be fine on this front unless you are making calls on your local machine.  In the future we plan on providing support for all versions of Python greater than 3.6.0.
+Most importantly, ensure you are using Python 3.7.3.  This is the version supplied by our Jupyter servers so you should be fine on this front unless you are making calls on your local machine.  In the future we plan on providing support for all versions of Python greater than 3.6.0.
 
 
 Hooks
@@ -183,14 +183,65 @@ ctingress.on_complete
 
 Event handlers for this hook will be executed after processing an entire archive of COMTRADE files.  The signature for your event handler should match the following arguments:
 
-handler(btrdb, uuids):
-    A function that is executed after the COMTRADE ingress processes a new
-    archive containing COMTRADE data.
+handler(btrdb, DataSets, File, RequestID, SubmittedAt, **kwargs):
+    This function is executed after the COMTRADE ingress processes a new archive containing COMTRADE data.  All inputs are sent as keyword arguments.
+
+    Implementers will find the 'DataSets' parameter to be the most useful as it will contain a list of dictionaries representing the status of each COMTRADE config/data file pairing.  If an error is encountered this will be displayed in the 'Error' key.  Similarly, if no issues were encountered the 'Success' key will equal True.  The 'Name' key represents the config file path within the archive.  The 'Streams' key contians a list of dictionaries representing individual streams within the COMTRADE file. Key/values for stream status include the start and end time of the included data (StartNs, EndNs), the time ingress began processing the stream (ProcessedAtNs), and the UUID of the stream.
+
+    While listed in documentation, **kwargs is not needed at this time though further arguments may be added in the future.
 
     Parameters
     ----------
     btrdb
         A Python btrdb connection object for querying the time series database.
-    uuids
-        A list of UUIDs (as string) representing streams that were involved in the
-        data import.
+    DataSets
+        A list of dictionaries representing the processing status of each COMTRADE config/data file pair.
+    File
+        The name of the uploaded archive file containing COMTRADE file pairs.
+    RequestID
+        A unique identifier for this submission.
+    SubmittedAt
+        The date/time for this submission.
+
+Assuming you chose to use variadic arguments (i.e., `**kwargs`) in your event handler, the input would look similar to the following.  This sample shows an archive file that included one pair of config/data COMTRADE files along with an erroneous file to show what an error would look like.
+
+.. code-block:: python
+
+    {
+        'DataSets': [
+            {
+                'Error': '',
+                'Name': '/DFR 2/200610,230000000,-4t,R108-North Anna #1,APP601,Dominion,M1094.cfg',
+                'Streams': [{'EndNs': 1591844539983333333,
+                            'ProcessedAtNs': 0,
+                            'StartNs': 1591844350000000000,
+                            'Uuid': '585cc764-3c80-5d3f-a7d7-59d48abbab0b'},
+                            {'EndNs': 1591844539983333333,
+                            'ProcessedAtNs': 0,
+                            'StartNs': 1591844350000000000,
+                            'Uuid': 'ee614a71-803a-511e-bbb7-6fb84210228d'},
+                            {'EndNs': 1591844539983333333,
+                            'ProcessedAtNs': 0,
+                            'StartNs': 1591844350000000000,
+                            'Uuid': '6575e59b-e486-5630-8596-9ef657f65a99'},
+                            {'EndNs': 1591844539983333333,
+                            'ProcessedAtNs': 0,
+                            'StartNs': 1591844350000000000,
+                            'Uuid': '801674d5-d6eb-5031-84f6-8746dce0761c'},
+                            {'EndNs': 1591844539983333333,
+                            'ProcessedAtNs': 0,
+                            'StartNs': 1591844350000000000,
+                            'Uuid': '597f8584-2acb-5a92-85bd-0002733fb920'}],
+                'Success': True
+            },
+            {
+                'Error': 'cfg format error',
+                'Name': '/__MACOSX/DFR 2/._200610,230000000,-4t,R108-North Anna #1,APP601,Dominion,M1094.cfg',
+                'Streams': None,
+                'Success': False
+            }
+        ],
+        'File': 'comtrade_samples.zip',
+        'RequestID': '0bbcacdb-e7aa-4e01-af88-9ba865ea32bd',
+        'SubmittedAt': '2020-10-29T21:58:15.09246084Z'
+    }
