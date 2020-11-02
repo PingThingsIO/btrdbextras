@@ -110,9 +110,12 @@ class Service(object):
             notify_on_success=notify_on_success,
             notify_on_failure=notify_on_failure,
             dependencies=dependencies,
-            flags=flags,
             )
         )
+
+        if flags is not None and len(flags) > 0:
+            params.flags = flags
+
         response = self.stub.Register(params)
         if hasattr(response, "handler"):
             return Handler.from_grpc(response.handler)

@@ -57,7 +57,7 @@ However, the `Connection` object will also look for the `BTRDB_ENDPOINTS` and `B
 Interactions
 ------------
 
-The following calls can be made to platform to manage your event handling code.
+The following calls can be made to the platform to manage your event handling code.
 
 Listing Known Hooks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
