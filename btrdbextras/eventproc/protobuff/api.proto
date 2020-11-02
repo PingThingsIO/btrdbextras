@@ -17,7 +17,7 @@ message Handler {
     string name = 3;
     int32 version = 4;
     string callable = 5;
-    repeated string flag = 6;
+    repeated string tag = 6;
     string notify_on_success = 7;
     string notify_on_failure = 8;
     string created_by = 9;
@@ -41,7 +41,7 @@ message Hook {
 message Registration {
     string name = 1;
     string hook = 2;
-    repeated string flags = 3;
+    repeated string tags = 3;
     bytes blob = 4;  // limit is 4GB
     string notify_on_success = 5;
     string notify_on_failure = 6;
@@ -51,11 +51,11 @@ message Registration {
 }
 
 message RegisterRequest {
-    Registration registration = 1;    
+    Registration registration = 1;
 }
 
 message RegisterResponse {
-    Handler handler = 1;    
+    Handler handler = 1;
 }
 
 message DeregisterRequest {
