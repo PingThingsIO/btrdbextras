@@ -15,13 +15,8 @@ Testing package for the btrdb database library.
 ## Imports
 ##########################################################################
 
+import re
 from btrdbextras import __version__
-
-##########################################################################
-## Test Constants
-##########################################################################
-
-EXPECTED_VERSION = "v5.11.3"
 
 
 ##########################################################################
@@ -32,6 +27,6 @@ class TestPackage(object):
 
     def test_version(self):
         """
-        Assert that the test version matches the library version.
+        Assert that the test version smells valid.
         """
-        assert __version__ == EXPECTED_VERSION
+        assert bool(re.match(r"^v\d+\.\d+\.\d+$", __version__))
