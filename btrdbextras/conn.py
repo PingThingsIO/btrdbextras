@@ -24,11 +24,14 @@ import os
 class Connection():
 
     def __init__(self, endpoint=os.environ.get("BTRDB_ENDPOINTS"), apikey=os.environ.get("BTRDB_API_KEY")):
-        if endpoint is None:
-            raise Exception("invalid endpoint or BTRDB_ENDPOINTS env variable not set")
+        if endpoint is None or endpoint.strip() == "":
+            raise ValueError("invalid endpoint or BTRDB_ENDPOINTS env variable not set")
 
-        if apikey is None:
-            raise Exception("invalid api key or BTRDB_API_KEY env variable not set")
+        if apikey is None or apikey.strip() == "":
+            raise ValueError("invalid api key or BTRDB_API_KEY env variable not set")
+
+        if ":" not in endpoint:
+            raise ValueError("invalid endpoint")
 
         self._endpoint = endpoint
         self._apikey = apikey
