@@ -280,10 +280,9 @@ class DQStreamSet(StreamSet):
             Returns bool indicating whether or not any of the underlying streams
             contain any event
         """
-        for stream in self._streams:
-            if stream.contains_any_event(start=start, end=end, depth=depth):
-                return True
-        return False
+        return {
+            str(stream.uuid): stream.contains_any_event(start=start, end=end, depth=depth)
+        }
 
     def contains_event(self, distil_type, start=None, end=None, depth=30):
         """
@@ -303,18 +302,20 @@ class DQStreamSet(StreamSet):
         
         Returns
         -------
-        bool
+        dict[str, bool]
             Returns bool indicating whether or not any of the underlying streams contain
             a certain event
         """
+        out = {}
         for stream in self._streams:
             try:
-                stream.contains_event(distil_type, start=start, end=end, depth=depth)
+                contains = stream.contains_event(distil_type, start=start, end=end, depth=depth)
             except KeyError:
-                continue
-
-        distillate = self[distil_type]
-        return distillate.contains_event(start=start, end=end, depth=depth)
+                # NOTE: this might be a bad idea. How to represent streams that do not have this 
+                # distillate stream?
+                contains = None
+            out[str(stream.uuid)] = contains
+        return out
     
     def __getitem__(self, index):
         """
@@ -338,4 +339,5 @@ if __name__ == "__main__":
     stream1 = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
     dq = DQStreamSet([stream1, stream2])
     print(dq.distillates)
-    print(dq.describe())
+    # print(dq.describe())
+    # print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
