@@ -249,7 +249,20 @@ class DQStreamSet(StreamSet):
         return distillate.contains_event(start=start, end=end, depth=depth)
     
     def __getitem__(self, index):
-		# TODO: this needs to get a DQStream by index
+		"""
+        Returns the DQStream contained at a given index within the set
+
+        Parameters
+        ----------
+        index: int
+            The index of the desired stream.
+
+        Returns
+        -------
+        DQStream
+            The DQStream stored in this object at the given index
+        """
+        return self._streams[index]
 
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
