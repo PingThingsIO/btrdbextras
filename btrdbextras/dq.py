@@ -4,7 +4,7 @@ from btrdb.stream import StreamSet, Stream
 from btrdb.utils.general import pointwidth
 from btrdb.utils.timez import ns_delta, to_nanoseconds
 
-KNOWN_DISTILLER_TYPES = ["repeats", "duplicates", "zeros"]
+KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
 
 class Distillate(Stream):
     """
@@ -26,7 +26,7 @@ class Distillate(Stream):
         # stream name, so we will need to be careful how we name distillates
         types = re.findall(r"(?=("+'|'.join(KNOWN_DISTILLER_TYPES)+r"))", self.name)
         if len(types) == 0:
-            raise Exception(f"unknown distiller type. Must be one of [{','.join(KNOWN_DISTILLERS)}]")
+            raise Exception(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
         if len(types) > 1:
             raise Exception(f"ambiguous distiller name. contains references to [{', '.join(types)}]")            
         self.type = types[0]
@@ -55,7 +55,7 @@ class Distillate(Stream):
         width = end - start
         windows, _ = zip(*self.windows(start, end, width, depth))
         return any(w.max >= 1 for w in windows)
-    
+
     def __repr__(self):
         return f"Distillate collection={self.collection}, name={self.name}, type={self.type}"
 
@@ -154,6 +154,9 @@ class DQStream(Stream):
             if distillate.type == item:
                 return distillate
         raise KeyError(f"Distillate with type '{item}' not found")
+
+    def __repr__(self):
+        return f"DQStream collection={self.collection}, name={self.name}"
 		
 class DQStreamSet(StreamSet):
     """
@@ -170,11 +173,8 @@ class DQStreamSet(StreamSet):
             if not isinstance(stream, DQStream):
                 stream = DQStream(stream)
             dq_streams.append(stream)
-        
         # gets everything that a StreamSet has
         super().__init__(dq_streams)
-        # self._conn = streams[0]._btrdb
-        # self._distillates = self._get_distillates()
     
     @property
     def distillates(self):
@@ -182,16 +182,17 @@ class DQStreamSet(StreamSet):
         Returns list of distillate streams
         """
         return [
-		    stream._distillates
-			for stream in self._streams
-		]        
-    
+            distillate
+            for stream in self._streams
+            for distillate in stream._distillates
+        ]
+
     def describe(self):
         """
         Outputs table describing metadata of distillate streams
         """
         raise NotImplementedError
-    
+
     def contains_any_event(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
@@ -214,6 +215,7 @@ class DQStreamSet(StreamSet):
         """
         return {
             str(stream.uuid): stream.contains_any_event(start=start, end=end, depth=depth)
+            for stream in self._streams
         }
 
     def contains_event(self, distil_type, start=None, end=None, depth=30):
@@ -257,5 +259,4 @@ if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
     stream = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
     dq = DQStreamSet([stream])
-    print(dq.distillates)
-    # print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
+    print(dq.contains_any_event())
