@@ -57,7 +57,7 @@ class Distillate(Stream):
         return any(w.max >= 1 for w in windows)
     
     def __repr__(self):
-        return f"Distillate collection={self.collection}, name={self.name}, type={self.type}, parent={self.parent}"
+        return f"Distillate collection={self.collection}, name={self.name}, type={self.type}"
 
 class DQStream(Stream):
     """
@@ -69,7 +69,7 @@ class DQStream(Stream):
         super().__init__(stream._btrdb, stream.uuid)
         self._distillates = self._get_distillates()
 		
-	def _get_distillates(self):
+    def _get_distillates(self):
         """
         Finds distillate streams for each of the underlying source streams
 
@@ -172,7 +172,7 @@ class DQStreamSet(StreamSet):
             dq_streams.append(stream)
         
         # gets everything that a StreamSet has
-		super().__init__(dq_streams)
+        super().__init__(dq_streams)
         # self._conn = streams[0]._btrdb
         # self._distillates = self._get_distillates()
     
@@ -212,10 +212,9 @@ class DQStreamSet(StreamSet):
             Returns bool indicating whether or not any of the underlying streams
             contain any event
         """
-        for stream in self._streams:
-            if stream.contains_any_event(start=start, end=end, depth=depth):
-                return True
-        return False
+        return {
+            str(stream.uuid): stream.contains_any_event(start=start, end=end, depth=depth)
+        }
 
     def contains_event(self, distil_type, start=None, end=None, depth=30):
         """
@@ -235,25 +234,28 @@ class DQStreamSet(StreamSet):
         
         Returns
         -------
-        bool
+        dict[str, bool]
             Returns bool indicating whether or not any of the underlying streams contain
             a certain event
         """
+        out = {}
         for stream in self._streams:
             try:
-                stream.contains_event(distil_type, start=start, end=end, depth=depth)
+                contains = stream.contains_event(distil_type, start=start, end=end, depth=depth)
             except KeyError:
-                continue
-
-        distillate = self[distil_type]
-        return distillate.contains_event(start=start, end=end, depth=depth)
+                # NOTE: this might be a bad idea. How to represent streams that do not have this 
+                # distillate stream?
+                contains = None
+            out[str(stream.uuid)] = contains
+        return out
     
     def __getitem__(self, index):
 		# TODO: this needs to get a DQStream by index
+        pass
 
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
     stream = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
     dq = DQStreamSet([stream])
     print(dq.distillates)
-    print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
+    # print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
