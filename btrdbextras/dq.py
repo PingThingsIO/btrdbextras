@@ -1,4 +1,6 @@
 import re
+from tabulate import tabulate
+
 import btrdb
 from btrdb.stream import StreamSet, Stream
 from btrdb.utils.general import pointwidth
@@ -99,6 +101,18 @@ class DQStream(Stream):
         """
         raise NotImplementedError
     
+    def list_distillates(self):
+        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
+        temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
+        for distiller in KNOWN_DISTILLER_TYPES:
+            try:
+                _ = self[distiller]
+                temp.append(u'\u2713')
+            except KeyError:
+                temp.append("x")
+        table.append(temp)
+        return tabulate(table, headers="firstrow")
+
     def contains_any_event(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
@@ -193,6 +207,19 @@ class DQStreamSet(StreamSet):
         """
         raise NotImplementedError
 
+    def list_distillates(self):
+        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
+        for stream in self._streams:
+            temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
+            for distiller in KNOWN_DISTILLER_TYPES:
+                try:
+                    _ = self[distiller]
+                    temp.append(u'\u2713')
+                except KeyError:
+                    temp.append("x")
+            table.append(temp)
+        return tabulate(table, headers="firstrow")
+
     def contains_any_event(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
@@ -258,5 +285,6 @@ class DQStreamSet(StreamSet):
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
     stream = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
-    dq = DQStreamSet([stream])
-    print(dq.contains_any_event())
+    dq = DQStream(stream)
+    print(dq.list_distillates())
+    # print(dq.contains_any_event())
