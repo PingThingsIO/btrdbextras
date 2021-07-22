@@ -98,16 +98,25 @@ class DQStream(Stream):
         Returns list of distillate streams
         """
         return self._distillates
-    
-    def describe(self):
+        
+    def list_distillates(self, notebook=False):
         """
-        Outputs table describing metadata of distillate streams
+        Outputs table showing which distillates the Stream has available
+
+        Parameters
+        ----------
+        notebook: bool
+            Whether or not this function is run from a notebook. Ensures
+            readable formatting
+
+        Returns
+        -------
+        str
+            Table showing which distillates the Stream has available
         """
-        raise NotImplementedError
-    
-    def list_distillates(self):
+        fmt = "html" if notebook else None
         table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
-        temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
+        temp = [str(self.uuid)[:8] + "...", self.collection, self.name]
         for distiller in KNOWN_DISTILLER_TYPES:
             try:
                 _ = self[distiller]
@@ -115,7 +124,7 @@ class DQStream(Stream):
             except KeyError:
                 temp.append("x")
         table.append(temp)
-        return tabulate(table, headers="firstrow")
+        return tabulate(table, headers="firstrow", tablefmt=fmt)
 
     def contains_any_event(self, start=None, end=None, depth=30):
         """
@@ -137,6 +146,8 @@ class DQStream(Stream):
             Returns bool indicating whether or not any of the underlying streams
             contain any event
         """
+        if len(self._distillates) == 0:
+            return None
         for distillate in self._distillates:
             if distillate.contains_event(start=start, end=end, depth=depth):
                 return True
@@ -194,7 +205,7 @@ class DQStreamSet(StreamSet):
         # gets everything that a StreamSet has
         super().__init__(dq_streams)
 
-    def describe(self, *additional_cols):
+    def describe(self, notebook=False, *additional_cols):
         """
         Outputs table describing metadata of distillate streams
 
@@ -206,6 +217,7 @@ class DQStreamSet(StreamSet):
         Returns:
         str: A tabulated representation of each underlying stream's information
         """
+        fmt = "html" if notebook else None
         # used to decide if user provided an arg that requires us to
         # query for a stream's annotations
         KNOWN_TAGS = ["name", "unit", "ingress", "distiller"]
@@ -245,7 +257,7 @@ class DQStreamSet(StreamSet):
         # iterate through streams, lookup metadata by uuid
         for stream in self._streams:
             stream_meta = meta[str(stream.uuid)]
-            dqinfo = "\n".join([distillate.type for distillate in stream.distillates])
+            dqinfo = ", ".join([distillate.type for distillate in stream.distillates])
             if not dqinfo:
                 dqinfo = "N/A"
 
@@ -262,9 +274,10 @@ class DQStreamSet(StreamSet):
                 # if a metadata key is not found, it will just be blank in the table
                 temp.extend([stream_meta.get(col) for col in additional_cols])
             table.append(temp)
-        return tabulate(table, headers="firstrow")
+        return tabulate(table, headers="firstrow", tablefmt=fmt)
 
-    def list_distillates(self):
+    def list_distillates(self, notebook=False):
+        fmt = "html" if notebook else None
         table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
         for stream in self._streams:
             temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
@@ -275,7 +288,7 @@ class DQStreamSet(StreamSet):
                 except KeyError:
                     temp.append("x")
             table.append(temp)
-        return tabulate(table, headers="firstrow")
+        return tabulate(table, headers="firstrow", tablefmt=fmt)
 
     def contains_any_event(self, start=None, end=None, depth=30):
         """
@@ -360,6 +373,5 @@ if __name__ == "__main__":
     stream2 = db.stream_from_uuid("077d6745-e3ae-5795-b22d-1eb067abb360")
     stream1 = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
     dq = DQStreamSet([stream1, stream2])
-    print(dq.distillates)
-    # print(dq.describe())
-    # print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
+    print(dq.describe())
+
