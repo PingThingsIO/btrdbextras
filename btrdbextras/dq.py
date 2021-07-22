@@ -80,6 +80,8 @@ class DQStream(Stream):
         list[Distillates]
             List of distillate streams
         """
+        # NOTE: This involves looking up distillate streams by their source_uuid annotation, so we
+        # need to make sure that all distillers give output streams this annotation
         distillates = [
             Distillate(stream._btrdb, stream.uuid)
             for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)})
@@ -213,7 +215,7 @@ class DQStreamSet(StreamSet):
             temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
             for distiller in KNOWN_DISTILLER_TYPES:
                 try:
-                    _ = self[distiller]
+                    _ = stream[distiller]
                     temp.append(u'\u2713')
                 except KeyError:
                     temp.append("x")
@@ -285,6 +287,6 @@ class DQStreamSet(StreamSet):
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
     stream = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
-    dq = DQStream(stream)
+    dq = DQStreamSet([stream])
     print(dq.list_distillates())
-    # print(dq.contains_any_event())
+
