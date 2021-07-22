@@ -1,4 +1,6 @@
 import re
+from tabulate import tabulate
+
 import btrdb
 from btrdb.stream import StreamSet, Stream
 from btrdb.utils.general import pointwidth
@@ -28,7 +30,7 @@ class Distillate(Stream):
         # stream name, so we will need to be careful how we name distillates
         types = re.findall(r"(?=("+'|'.join(KNOWN_DISTILLER_TYPES)+r"))", self.name)
         if len(types) == 0:
-            raise Exception(f"unknown distiller type. Must be one of [{','.join(KNOWN_DISTILLER_TYPES)}]")
+            raise Exception(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
         if len(types) > 1:
             raise Exception(f"ambiguous distiller name. contains references to [{', '.join(types)}]")            
         self.type = types[0]
@@ -57,7 +59,7 @@ class Distillate(Stream):
         width = end - start
         windows, _ = zip(*self.windows(start, end, width, depth))
         return any(w.max >= 1 for w in windows)
-    
+
     def __repr__(self):
         return f"Distillate collection={self.collection}, name={self.name}, type={self.type}"
 
@@ -80,6 +82,8 @@ class DQStream(Stream):
         list[Distillates]
             List of distillate streams
         """
+        # NOTE: This involves looking up distillate streams by their source_uuid annotation, so we
+        # need to make sure that all distillers give output streams this annotation
         distillates = [
             Distillate(stream._btrdb, stream.uuid)
             for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)})
@@ -101,6 +105,18 @@ class DQStream(Stream):
         """
         raise NotImplementedError
     
+    def list_distillates(self):
+        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
+        temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
+        for distiller in KNOWN_DISTILLER_TYPES:
+            try:
+                _ = self[distiller]
+                temp.append(u'\u2713')
+            except KeyError:
+                temp.append("x")
+        table.append(temp)
+        return tabulate(table, headers="firstrow")
+
     def contains_any_event(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
@@ -156,6 +172,9 @@ class DQStream(Stream):
             if distillate.type == item:
                 return distillate
         raise KeyError(f"Distillate with type '{item}' not found")
+
+    def __repr__(self):
+        return f"DQStream collection={self.collection}, name={self.name}"
 		
 class DQStreamSet(StreamSet):
     """
@@ -172,22 +191,9 @@ class DQStreamSet(StreamSet):
             if not isinstance(stream, DQStream):
                 stream = DQStream(stream)
             dq_streams.append(stream)
-        
         # gets everything that a StreamSet has
         super().__init__(dq_streams)
-        # self._conn = streams[0]._btrdb
-        # self._distillates = self._get_distillates()
-    
-    @property
-    def distillates(self):
-        """
-        Returns list of distillate streams
-        """
-        return [
-		    stream._distillates
-			for stream in self._streams
-		]        
-    
+
     def describe(self, *additional_cols):
         """
         Outputs table describing metadata of distillate streams
@@ -236,7 +242,6 @@ class DQStreamSet(StreamSet):
              for res in conn.query(query)
          }
 
-
         # iterate through streams, lookup metadata by uuid
         for stream in self._streams:
             stream_meta = meta[str(stream.uuid)]
@@ -259,7 +264,19 @@ class DQStreamSet(StreamSet):
             table.append(temp)
         return tabulate(table, headers="firstrow")
 
-    
+    def list_distillates(self):
+        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
+        for stream in self._streams:
+            temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
+            for distiller in KNOWN_DISTILLER_TYPES:
+                try:
+                    _ = stream[distiller]
+                    temp.append(u'\u2713')
+                except KeyError:
+                    temp.append("x")
+            table.append(temp)
+        return tabulate(table, headers="firstrow")
+
     def contains_any_event(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
@@ -282,6 +299,7 @@ class DQStreamSet(StreamSet):
         """
         return {
             str(stream.uuid): stream.contains_any_event(start=start, end=end, depth=depth)
+            for stream in self._streams
         }
 
     def contains_event(self, distil_type, start=None, end=None, depth=30):
@@ -332,6 +350,10 @@ class DQStreamSet(StreamSet):
             The DQStream stored in this object at the given index
         """
         return self._streams[index]
+
+    def __repr__(self):
+        token = "stream" if len(self) == 1 else "streams"
+        return f"<{self.__class__.__name__} ({len(self._streams)} {token})>"
 
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
