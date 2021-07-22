@@ -5,6 +5,8 @@ import btrdb
 from btrdb.stream import StreamSet, Stream
 from btrdb.utils.general import pointwidth
 from btrdb.utils.timez import ns_delta, to_nanoseconds
+from tabulate import tabulate
+import warnings
 
 KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
 
@@ -87,7 +89,7 @@ class DQStream(Stream):
             for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)})
         ]
         if len(distillates) < 1:
-            raise Exception("Could not find any distillates for the provided streams")
+            warnings.warn(f"Could not find distillates for stream {str(self.uuid)}")
         return distillates
 		
     @property
@@ -203,11 +205,76 @@ class DQStreamSet(StreamSet):
             for distillate in stream._distillates
         ]
 
-    def describe(self):
+    def describe(self, *additional_cols):
         """
         Outputs table describing metadata of distillate streams
+
+        Parameters:
+         *additional_cols: str
+             additional columns to include in output table. Will result in empty values
+             if they are not found in a stream's tags or annotations
+
+        Returns:
+        str: A tabulated representation of each underlying stream's information
         """
-        raise NotImplementedError
+        # used to decide if user provided an arg that requires us to
+        # query for a stream's annotations
+        KNOWN_TAGS = ["name", "unit", "ingress", "distiller"]
+        contains_annotations = False
+
+        table = [["Collection", "Name", "Unit", "UUID", "Version", "Available Data Quality Info"]]
+
+        # TODO: this feels hacky, how should we address this? Nowhere else in StreamSet
+        # do we access a BTrDB connection directly, everything is usually done
+        # at the Stream level.
+        conn = self._streams[0]._btrdb
+
+        # add args as table columns if user provides them
+        if additional_cols:
+         if not all(a in KNOWN_TAGS for a in additional_cols):
+             contains_annotations=True
+         table[0].extend(additional_cols)
+
+        # query for metadata for all streams upfront
+        # store metadata results in a dict where uuid is the key and metadata dict is values
+        uuids = [str(stream.uuid) for stream in self._streams]
+        uu_str = ",".join(f"'{uu}'" for uu in uuids)
+        if not contains_annotations:
+            query = f"SELECT uuid, name, unit, distiller, ingress FROM streams WHERE uuid IN ({uu_str})"
+            meta = {res["uuid"]: {tag: res.get(tag) for tag in KNOWN_TAGS} for res in conn.query(query)}
+        else:
+            query = f"""
+                     SELECT uuid, annotations, name, unit, distiller, ingress
+                     FROM streams
+                     WHERE uuid IN ({uu_str})
+                 """
+            meta = {
+             res["uuid"]: {**res["annotations"], **{tag: res.get(tag) for tag in KNOWN_TAGS}}
+             for res in conn.query(query)
+         }
+
+
+        # iterate through streams, lookup metadata by uuid
+        for stream in self._streams:
+            stream_meta = meta[str(stream.uuid)]
+            dqinfo = "\n".join([distillate.type for distillate in stream.distillates])
+            if not dqinfo:
+                dqinfo = "N/A"
+
+            temp = [
+                stream.collection,
+                stream.name,
+                stream_meta["unit"],
+                str(stream.uuid)[:8] + "...",
+                stream.version(),
+                dqinfo,
+            ]
+            # add additional data to row if additional cols provided
+            if additional_cols:
+                # if a metadata key is not found, it will just be blank in the table
+                temp.extend([stream_meta.get(col) for col in additional_cols])
+            table.append(temp)
+        return tabulate(table, headers="firstrow")
 
     def list_distillates(self):
         table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
@@ -281,12 +348,26 @@ class DQStreamSet(StreamSet):
         return out
     
     def __getitem__(self, index):
-		# TODO: this needs to get a DQStream by index
-        pass
+        """
+        Returns the DQStream contained at a given index within the set
+
+        Parameters
+        ----------
+        index: int
+            The index of the desired stream.
+
+        Returns
+        -------
+        DQStream
+            The DQStream stored in this object at the given index
+        """
+        return self._streams[index]
 
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
-    stream = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
-    dq = DQStreamSet([stream])
-    print(dq.list_distillates())
-
+    stream2 = db.stream_from_uuid("077d6745-e3ae-5795-b22d-1eb067abb360")
+    stream1 = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
+    dq = DQStreamSet([stream1, stream2])
+    print(dq.distillates)
+    # print(dq.describe())
+    # print(dq.contains_event("zeros", start="2021-07-16 20:00:00.00", end="2021-07-16 23:00:00.00"))
