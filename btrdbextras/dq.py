@@ -193,17 +193,6 @@ class DQStreamSet(StreamSet):
             dq_streams.append(stream)
         # gets everything that a StreamSet has
         super().__init__(dq_streams)
-    
-    @property
-    def distillates(self):
-        """
-        Returns list of distillate streams
-        """
-        return [
-            distillate
-            for stream in self._streams
-            for distillate in stream._distillates
-        ]
 
     def describe(self, *additional_cols):
         """
@@ -252,7 +241,6 @@ class DQStreamSet(StreamSet):
              res["uuid"]: {**res["annotations"], **{tag: res.get(tag) for tag in KNOWN_TAGS}}
              for res in conn.query(query)
          }
-
 
         # iterate through streams, lookup metadata by uuid
         for stream in self._streams:
@@ -362,6 +350,10 @@ class DQStreamSet(StreamSet):
             The DQStream stored in this object at the given index
         """
         return self._streams[index]
+
+    def __repr__(self):
+        token = "stream" if len(self) == 1 else "streams"
+        return f"<{self.__class__.__name__} ({len(self._streams)} {token})>"
 
 if __name__ == "__main__":
     db = btrdb.connect(profile="d2")
