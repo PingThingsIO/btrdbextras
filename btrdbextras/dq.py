@@ -54,8 +54,8 @@ class Distillate(Stream):
         bool
             Returns bool indicating whether or not the distillate stream contains an event
         """
-        start = to_nanoseconds(start) if start else self.earliest()[0].time
-        end = to_nanoseconds(end) if end else self.latest()[0].time + 1
+        start = to_nanoseconds(start) or self.earliest()[0].time
+        end = to_nanoseconds(end) or self.latest()[0].time + 1
         width = end - start
         windows, _ = zip(*self.windows(start, end, width, depth))
         return any(w.max >= 1 for w in windows)
