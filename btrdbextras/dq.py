@@ -55,6 +55,7 @@ class Distillate(Stream):
             Returns bool indicating whether or not the distillate stream contains an event
         """
         start = to_nanoseconds(start) or self.earliest()[0].time
+        # adding 1 to end time because end is exclusive in windows()
         end = to_nanoseconds(end) or self.latest()[0].time + 1
         width = end - start
         windows, _ = zip(*self.windows(start, end, width, depth))
@@ -67,6 +68,10 @@ class DQStream(Stream):
     """
     Subsets StreamSet object. Contains an original stream along with its
     distillate Streams
+
+    Parameters
+    ----------
+    stream: btrdb.stream.Stream
     """
     def __init__(self, stream):
         # gives all same attrs/methods as Stream
@@ -75,12 +80,12 @@ class DQStream(Stream):
 		
     def _get_distillates(self):
         """
-        Finds distillate streams for each of the underlying source streams
+        Finds distillate Streams for each of the underlying source Streams
 
         Returns
         -------
-        list[Distillates]
-            List of distillate streams
+        list[Distillate]
+            list of distillate Streams
         """
         # NOTE: This involves looking up distillate streams by their source_uuid annotation, so we
         # need to make sure that all distillers give output streams this annotation
@@ -95,7 +100,7 @@ class DQStream(Stream):
     @property
     def distillates(self):
         """
-        Returns list of distillate streams
+        Returns list of distillate Streams
         """
         return self._distillates
         
@@ -107,7 +112,7 @@ class DQStream(Stream):
         ----------
         notebook: bool
             Whether or not this function is run from a notebook. Ensures
-            readable formatting
+            legible formatting
 
         Returns
         -------
@@ -189,7 +194,8 @@ class DQStream(Stream):
 		
 class DQStreamSet(StreamSet):
     """
-    Subsets a StreamSet object
+    Subsets a StreamSet object. Contains a list of Streams along with each of their
+    distillate Streams
 
     Parameters
     ----------
@@ -204,18 +210,26 @@ class DQStreamSet(StreamSet):
             dq_streams.append(stream)
         # gets everything that a StreamSet has
         super().__init__(dq_streams)
+        # TODO: this feels hacky, how should we address this? Nowhere else in StreamSet
+        # do we access a BTrDB connection directly, everything is usually done
+        # at the Stream level.
+        self._conn = self._streams[0]._btrdb
 
     def describe(self, notebook=False, *additional_cols):
         """
         Outputs table describing metadata of distillate streams
 
         Parameters:
-         *additional_cols: str
+        notebook: bool
+            Whether or not this function is run from a notebook. Ensures
+            legible formatting
+        *additional_cols: str
              additional columns to include in output table. Will result in empty values
              if they are not found in a stream's tags or annotations
 
         Returns:
-        str: A tabulated representation of each underlying stream's information
+        str
+            A tabulated representation of each underlying stream's information
         """
         fmt = "html" if notebook else None
         # used to decide if user provided an arg that requires us to
@@ -224,11 +238,6 @@ class DQStreamSet(StreamSet):
         contains_annotations = False
 
         table = [["Collection", "Name", "Unit", "UUID", "Version", "Available Data Quality Info"]]
-
-        # TODO: this feels hacky, how should we address this? Nowhere else in StreamSet
-        # do we access a BTrDB connection directly, everything is usually done
-        # at the Stream level.
-        conn = self._streams[0]._btrdb
 
         # add args as table columns if user provides them
         if additional_cols:
@@ -242,7 +251,7 @@ class DQStreamSet(StreamSet):
         uu_str = ",".join(f"'{uu}'" for uu in uuids)
         if not contains_annotations:
             query = f"SELECT uuid, name, unit, distiller, ingress FROM streams WHERE uuid IN ({uu_str})"
-            meta = {res["uuid"]: {tag: res.get(tag) for tag in KNOWN_TAGS} for res in conn.query(query)}
+            meta = {res["uuid"]: {tag: res.get(tag) for tag in KNOWN_TAGS} for res in self._conn.query(query)}
         else:
             query = f"""
                      SELECT uuid, annotations, name, unit, distiller, ingress
@@ -251,7 +260,7 @@ class DQStreamSet(StreamSet):
                  """
             meta = {
              res["uuid"]: {**res["annotations"], **{tag: res.get(tag) for tag in KNOWN_TAGS}}
-             for res in conn.query(query)
+             for res in self._conn.query(query)
          }
 
         # iterate through streams, lookup metadata by uuid
@@ -277,6 +286,21 @@ class DQStreamSet(StreamSet):
         return tabulate(table, headers="firstrow", tablefmt=fmt)
 
     def list_distillates(self, notebook=False):
+        """
+        Outputs table showing which distillates each underlying Stream
+        has available
+
+        Parameters
+        ----------
+        notebook: bool
+            Whether or not this function is run from a notebook. Ensures
+            legible formatting
+
+        Returns
+        -------
+        str
+            Table showing which distillates each Stream has available
+        """
         fmt = "html" if notebook else None
         table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
         for stream in self._streams:
@@ -306,8 +330,8 @@ class DQStreamSet(StreamSet):
         
         Returns
         -------
-        dict
-            Returns bool indicating whether or not any of the underlying streams
+        dict[str, bool]
+            Returns dict indicating whether or not each of the underlying streams
             contain any event
         """
         return {
@@ -334,7 +358,7 @@ class DQStreamSet(StreamSet):
         Returns
         -------
         dict[str, bool]
-            Returns bool indicating whether or not any of the underlying streams contain
+            Returns dict indicating whether or each of the underlying streams contain
             a certain event
         """
         out = {}
@@ -374,4 +398,3 @@ if __name__ == "__main__":
     stream1 = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
     dq = DQStreamSet([stream1, stream2])
     print(dq.describe())
-
