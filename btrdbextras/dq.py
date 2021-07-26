@@ -56,6 +56,9 @@ class Distillate(Stream):
         start = to_nanoseconds(start) or self.earliest()[0].time
         # adding 1 to end time because end is exclusive in windows()
         end = to_nanoseconds(end) or self.latest()[0].time + 1
+        # There's no event if there's no data
+        if start is None and end is None:
+            return False
         width = end - start
         windows, _ = zip(*self.windows(start, end, width, depth))
         return any(w.max >= 1 for w in windows)
