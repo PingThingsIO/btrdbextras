@@ -24,6 +24,8 @@ from btrdb.utils.timez import ns_to_datetime
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
+import boto3
+from datetime import datetime
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister']
 
@@ -211,3 +213,23 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
         return func
 
     return inner
+
+def upload_file(file_name):
+    """
+    Uploads file_name to pt-infra-dev-eventproc (later pt-comed-files/eventproc).
+
+    Parameters
+    ----------
+    file_name: string
+        Path to the file.
+    return: True if file was uploaded, else False
+    """
+
+    # Upload the file
+    s3_client = boto3.client('s3')
+    try:
+        response = s3_client.upload_file(file_name, "pt-infra-dev-eventproc", datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p")+"/"+file_name)
+    except ClientError as e:
+        println(e)
+        return False
+    return True
