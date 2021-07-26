@@ -1,12 +1,11 @@
 import re
+import warnings
 from tabulate import tabulate
 
 import btrdb
 from btrdb.stream import StreamSet, Stream
 from btrdb.utils.general import pointwidth
 from btrdb.utils.timez import ns_delta, to_nanoseconds
-from tabulate import tabulate
-import warnings
 
 KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
 
