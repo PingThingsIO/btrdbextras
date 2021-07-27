@@ -25,6 +25,7 @@ from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 import os
+import json
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from datetime import datetime
@@ -236,36 +237,59 @@ def upload_file(file, file_name):
         Path to the file, or a readable file-like object.
     file_name: string
         Name that the file will be called in s3.
-    return: True if the inputs were correct and upload succeeded or was not attempted. False if the inputs were malformed or if the upload failed. If the function is run outside of the eventproc-executor, it will simply check the inputs, print a warning, and not upload anything since it will not have the appropriate AWS credentials to upload.
+    return: False if the inputs were malformed or if the upload failed, else True. If the function was run outside of an eventproc handler, it will simply check the inputs, return True if they are well-formed, and not upload anything.
     """
-
     bucket = os.getenv("BUCKET")
     s3client = boto3.client('s3')
-    upload_func = s3client.upload_file
 
+    openfile = False
+    f = file
+    
     # check the inputs
-    if isinstance(file, str):
-        if not os.file.isfile(file):
-            # throw error
-            return False
-    else:
-        upload_func = s3client.upload_fileobj
-        if not hasattr(file, "read"):
-            # throw error
-            return False
     if not isinstance(file_name, str):
         # throw error
-        return False
+        return False, None
+    if isinstance(file, str):
+        if not os.path.exists(file):
+            # throw error
+            return False, None
+        openfile = True
+    else:
+        if not hasattr(file, "read"):
+            # throw error
+            return False, None
 
     # check the s3 connection
     if not check_s3_creds(s3client, bucket):
-        print("WARNING: upload_file is running in an execution context without the appropriate AWS credentials and will do nothing, but still return True.")
-        return True
+        print("WARNING: upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3, but still return True if the inputs are well-formed.")
+        return True, None
+    
+    # get job metadata
+    mdstr = os.getenv("JOB_MD")
+    if mdstr != None:
+        md = json.loads(mdstr)
+    else:
+        md = json.loads("{}")
 
+    if openfile:
+        f = open(file, "rb")
+        
     # do the upload
+    key = "uploads/"+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")+"/"+file_name
     try:
-        response = upload_func(file, bucket, "uploads/"+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")+"/"+file_name)
+        response = s3client.put_object(Body=f, Bucket=bucket, Key=key, Metadata=md)
     except ClientError as e:
         print(e)
-        return False
-    return True
+        if openfile:
+            f.close()
+        return False, None
+    if openfile:
+        f.close()
+    
+    if result['ResponseMetadata']['HTTPStatusCode'] == 200:
+        objecturl = "https://{pt-infra-dev-eventproc}.s3.amazonaws.com/uploads/2021_07_27-22_47_39/test-put-obj-file"
+        s3uri = "s3://{0}/{1}".format(bucket, key)
+        response = s3uri
+    else:
+        response = None
+    return True, response
