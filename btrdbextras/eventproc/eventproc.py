@@ -24,10 +24,12 @@ from btrdb.utils.timez import ns_to_datetime
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
+import os
 import boto3
+from botocore.exceptions import ClientError
 from datetime import datetime
 
-__all__ = ['hooks', 'list_handlers', 'register', 'deregister']
+__all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file']
 
 import grpc
 
@@ -56,6 +58,16 @@ def connect(conn):
         )
     )
 
+def check_s3_creds(s3client, bucket):
+    try:
+        buckets = s3client.list_buckets()["Buckets"]
+    except NoCredentialsError as e:
+        return False
+    found = False
+    for b in buckets:
+        if b["Name"] == bucket:
+            found = True
+    return found
 
 ##########################################################################
 ## Helper Classes
@@ -214,22 +226,46 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
 
     return inner
 
-def upload_file(file_name):
+def upload_file(file, file_name):
     """
-    Uploads file_name to pt-infra-dev-eventproc (later pt-comed-files/eventproc).
+    Uploads the file to S3, calling it file_name.
 
     Parameters
     ----------
+    file: string or a readable file-like object
+        Path to the file, or a readable file-like object.
     file_name: string
-        Path to the file.
-    return: True if file was uploaded, else False
+        Name that the file will be called in s3.
+    return: False if the inputs were malformed or if the upload failed, else True. If the function was run outside of an eventproc handler, it will simply check the inputs, return True if they are well-formed, and not upload anything.
     """
 
-    # Upload the file
-    s3_client = boto3.client('s3')
+    bucket = os.getenv("BUCKET")
+    s3client = boto3.client('s3')
+    upload_func = s3client.upload_file
+
+    # check the inputs
+    if isinstance(file, str):
+        if not os.file.isfile(file):
+            # throw error
+            return False
+    else:
+        upload_func = s3client.upload_fileobj
+        if not hasattr(file, "read"):
+            # throw error
+            return False
+    if not isinstance(file_name, str):
+        # throw error
+        return False
+
+    # check the s3 connection
+    if not check_s3_creds(s3client, bucket):
+        print("WARNING: upload_file is running in an execution context without the correct aws credentials and will do nothing, but still return True.")
+        return True
+
+    # do the upload
     try:
-        response = s3_client.upload_file(file_name, "pt-infra-dev-eventproc", datetime.now().strftime("%Y_%m_%d-%I:%M:%S_%p")+"/"+file_name)
+        response = upload_func(file, bucket, "uploads/"+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")+"/"+file_name)
     except ClientError as e:
-        println(e)
+        print(e)
         return False
     return True
