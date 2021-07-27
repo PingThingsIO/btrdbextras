@@ -26,7 +26,7 @@ from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 import os
 import boto3
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 from datetime import datetime
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file']
@@ -236,7 +236,7 @@ def upload_file(file, file_name):
         Path to the file, or a readable file-like object.
     file_name: string
         Name that the file will be called in s3.
-    return: False if the inputs were malformed or if the upload failed, else True. If the function was run outside of an eventproc handler, it will simply check the inputs, return True if they are well-formed, and not upload anything.
+    return: True if the inputs were correct and upload succeeded or was not attempted. False if the inputs were malformed or if the upload failed. If the function is run outside of the eventproc-executor, it will simply check the inputs, print a warning, and not upload anything since it will not have the appropriate AWS credentials to upload.
     """
 
     bucket = os.getenv("BUCKET")
@@ -259,7 +259,7 @@ def upload_file(file, file_name):
 
     # check the s3 connection
     if not check_s3_creds(s3client, bucket):
-        print("WARNING: upload_file is running in an execution context without the correct aws credentials and will do nothing, but still return True.")
+        print("WARNING: upload_file is running in an execution context without the appropriate AWS credentials and will do nothing, but still return True.")
         return True
 
     # do the upload
