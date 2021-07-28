@@ -9,7 +9,14 @@ from btrdb.utils.timez import ns_delta, to_nanoseconds
 
 KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
 
-class Distillate(Stream):
+class AmbiguousDistillateError(ValueError):
+    """
+    Raised when a distillate stream's name contains references to multiple known
+    data quality distiller names
+    """
+    pass
+
+class DQDistillate(Stream):
     """
     Subsets a Stream object and allows for identfication of data quality events
 
@@ -29,9 +36,9 @@ class Distillate(Stream):
         # stream name, so we will need to be careful how we name distillates
         types = re.findall(r"(?=("+'|'.join(KNOWN_DISTILLER_TYPES)+r"))", self.name)
         if len(types) == 0:
-            raise Exception(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
+            raise ValueError(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
         if len(types) > 1:
-            raise Exception(f"ambiguous distiller name. contains references to [{', '.join(types)}]")            
+            raise AmbiguousDistillateError(f"ambiguous distiller name. contains references to [{', '.join(types)}]")
         self.type = types[0]
 
     def contains_event(self, start=None, end=None, depth=30):
@@ -64,7 +71,7 @@ class Distillate(Stream):
         return any(w.max >= 1 for w in windows)
 
     def __repr__(self):
-        return f"Distillate collection={self.collection}, name={self.name}, type={self.type}"
+        return f"DQDistillate collection={self.collection}, name={self.name}, type={self.type}"
 
 class DQStream(Stream):
     """
@@ -86,17 +93,24 @@ class DQStream(Stream):
 
         Returns
         -------
-        list[Distillate]
+        list[DQDistillate]
             list of distillate Streams
         """
         # NOTE: This involves looking up distillate streams by their source_uuid annotation, so we
         # need to make sure that all distillers give output streams this annotation
-        distillates = [
-            Distillate(stream._btrdb, stream.uuid)
-            for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)})
-        ]
+        distillates = []
+        for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)}):
+            try:
+                distillates.append(DQDistillate(stream._btrdb, stream.uuid))
+            # we only want to raise this error if we aren't sure which distiller the stream is
+            # referring to, it's fine if it's a non data quality distiller, that is expected
+            except ValueError as e:
+                if isinstance(e, AmbiguousDistillateError):
+                    raise
+                else:
+                    continue
         if len(distillates) < 1:
-            warnings.warn(f"Could not find distillates for stream {str(self.uuid)}")
+            warnings.warn(f"Could not find any data quality distillates for stream {str(self.uuid)}")
         return distillates
 		
     @property
@@ -189,7 +203,7 @@ class DQStream(Stream):
         for distillate in self._distillates:
             if distillate.type == item:
                 return distillate
-        raise KeyError(f"Distillate with type '{item}' not found")
+        raise KeyError(f"DQDistillate with type '{item}' not found")
 
     def __repr__(self):
         return f"DQStream collection={self.collection}, name={self.name}"
@@ -393,10 +407,3 @@ class DQStreamSet(StreamSet):
     def __repr__(self):
         token = "stream" if len(self) == 1 else "streams"
         return f"<{self.__class__.__name__} ({len(self._streams)} {token})>"
-
-if __name__ == "__main__":
-    db = btrdb.connect(profile="d2")
-    stream2 = db.stream_from_uuid("077d6745-e3ae-5795-b22d-1eb067abb360")
-    stream1 = db.stream_from_uuid("9464f51f-e05a-5db1-a965-3c339f748081")
-    dq = DQStreamSet([stream1, stream2])
-    print(dq.describe())
