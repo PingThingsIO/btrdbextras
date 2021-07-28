@@ -26,6 +26,7 @@ from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 import os
 import json
+import warnings
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 from datetime import datetime
@@ -229,40 +230,44 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
 
 def upload_file(file, file_name):
     """
-    Uploads the file to S3, calling it file_name.
+    Uploads file to S3. Returns a link to download the file.
+    If the upload is attempted and fails, a warning will be raised before return.
+    If the function runs outside of an eventproc handler executing in response to a hook, it will just check the inputs, raise a warning, and not attempt an upload.
 
     Parameters
     ----------
     file: string or a readable file-like object
         Path to the file, or a readable file-like object.
     file_name: string
-        Name that the file will be called in s3.
-    return: False if the inputs were malformed or if the upload failed, else True. If the function was run outside of an eventproc handler, it will simply check the inputs, return True if they are well-formed, and not upload anything.
+        Name that the file will be called on download.
+
+    Raises
+    ---------
+    TypeError: file_name must be a string.
+    TypeError: If file is a file-like object, it must be readable.
+    ValueError: If file is a string, it must be a path to a file.
+    
+    Returns
+    ----------
+    string: Download link to the object. None if the upload failed or was not attempted.
     """
     bucket = os.getenv("BUCKET")
     s3client = boto3.client('s3')
-
-    openfile = False
-    f = file
     
     # check the inputs
     if not isinstance(file_name, str):
-        # throw error
-        return False, None
+        raise TypeError("file_name must be a string.")
     if isinstance(file, str):
         if not os.path.exists(file):
-            # throw error
-            return False, None
-        openfile = True
+            raise ValueError("If file is a string, it must be a path to a file.")
     else:
         if not hasattr(file, "read"):
-            # throw error
-            return False, None
+            raise TypeError("If file is a file-like object, it must be readable.")
 
     # check the s3 connection
     if not check_s3_creds(s3client, bucket):
-        print("WARNING: upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3, but still return True if the inputs are well-formed.")
-        return True, None
+        warnings.warn("upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3.")
+        return None
     
     # get job metadata
     mdstr = os.getenv("JOB_MD")
@@ -271,25 +276,32 @@ def upload_file(file, file_name):
     else:
         md = json.loads("{}")
 
-    if openfile:
+    # open file if it was a path
+    if isinstance(file, str):
         f = open(file, "rb")
+        openfile = True
+    else:
+        f = file
+        openfile = False
         
     # do the upload
     key = "uploads/"+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")+"/"+file_name
     try:
         response = s3client.put_object(Body=f, Bucket=bucket, Key=key, Metadata=md)
     except ClientError as e:
-        print(e)
         if openfile:
             f.close()
-        return False, None
+        warnings.warn("Upload to S3 failed: " + str(e))
+        return None
+
     if openfile:
         f.close()
-    
-    if result['ResponseMetadata']['HTTPStatusCode'] == 200:
+
+    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
         objecturl = "https://{pt-infra-dev-eventproc}.s3.amazonaws.com/uploads/2021_07_27-22_47_39/test-put-obj-file"
         s3uri = "s3://{0}/{1}".format(bucket, key)
-        response = s3uri
-    else:
-        response = None
-    return True, response
+        # todo carly: put link in postgres, return customer-facing link
+        return s3uri
+    
+    warnings.warn("Upload to S3 failed: HTTP Error " + str(response['ResponseMetadata']['HTTPStatusCode']))
+    return None
