@@ -9,6 +9,13 @@ from btrdb.utils.timez import ns_delta, to_nanoseconds
 
 KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
 
+class AmbiguousDistillateError(ValueError):
+    """
+    Raised when a distillate stream's name contains references to multiple known
+    data quality distiller names
+    """
+    pass
+
 class DQDistillate(Stream):
     """
     Subsets a Stream object and allows for identfication of data quality events
@@ -31,7 +38,7 @@ class DQDistillate(Stream):
         if len(types) == 0:
             raise ValueError(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
         if len(types) > 1:
-            raise ValueError(f"ambiguous distiller name. contains references to [{', '.join(types)}]")
+            raise AmbiguousDistillateError(f"ambiguous distiller name. contains references to [{', '.join(types)}]")
         self.type = types[0]
 
     def contains_event(self, start=None, end=None, depth=30):
@@ -95,8 +102,13 @@ class DQStream(Stream):
         for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)}):
             try:
                 distillates.append(DQDistillate(stream._btrdb, stream.uuid))
-            except ValueError:
-                continue
+            # we only want to raise this error if we aren't sure which distiller the stream is
+            # referring to, it's fine if it's a non data quality distiller, that is expected
+            except ValueError as e:
+                if isinstance(e, AmbiguousDistillateError):
+                    raise
+                else:
+                    continue
         if len(distillates) < 1:
             warnings.warn(f"Could not find any data quality distillates for stream {str(self.uuid)}")
         return distillates
