@@ -27,9 +27,10 @@ from btrdbextras.eventproc.protobuff import api_pb2_grpc
 import os
 import json
 import warnings
+import hashlib
+import uuid
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
-from datetime import datetime
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file']
 
@@ -244,7 +245,7 @@ def upload_file(file, file_name):
     Raises
     ---------
     TypeError: file_name must be a string.
-    TypeError: If file is a file-like object, it must be readable.
+    ValueError: If file is a file-like object, it must be readable and seekable.
     ValueError: If file is a string, it must be a path to a file.
     
     Returns
@@ -252,6 +253,8 @@ def upload_file(file, file_name):
     string: Download link to the object. None if the upload failed or was not attempted.
     """
     bucket = os.getenv("BUCKET")
+    mdstr = os.getenv("JOB_MD")
+
     s3client = boto3.client('s3')
     
     # check the inputs
@@ -261,8 +264,8 @@ def upload_file(file, file_name):
         if not os.path.exists(file):
             raise ValueError("If file is a string, it must be a path to a file.")
     else:
-        if not hasattr(file, "read"):
-            raise TypeError("If file is a file-like object, it must be readable.")
+        if not (file.readable() and file.seekable()) :
+            raise ValueError("If file is a file-like object, it must be readable and seekable.")
 
     # check the s3 connection
     if not check_s3_creds(s3client, bucket):
@@ -275,6 +278,7 @@ def upload_file(file, file_name):
         md = json.loads(mdstr)
     else:
         md = json.loads("{}")
+        md["error"] = "JOB_MD not set by eventproc-executor"
 
     # open file if it was a path
     if isinstance(file, str):
@@ -283,9 +287,19 @@ def upload_file(file, file_name):
     else:
         f = file
         openfile = False
+
+    # add a hash of the file contents to file metadata
+    file_hash = hashlib.sha256()
+    BLOCK_SIZE = 1024
+    fb = f.readreadall
+    while len(fb) > 0:
+        file_hash.update(fb)
+        fb = f.read(BLOCK_SIZE)
+    md["file_hash"] = file_hash.hexdigest()
+    f.seek(0)
         
     # do the upload
-    key = "uploads/"+datetime.now().strftime("%Y_%m_%d-%H_%M_%S")+"/"+file_name
+    key = "eventproc/" + str(uuid.uuid4()) + "/" + file_name
     try:
         response = s3client.put_object(Body=f, Bucket=bucket, Key=key, Metadata=md)
     except ClientError as e:
@@ -298,7 +312,6 @@ def upload_file(file, file_name):
         f.close()
 
     if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        objecturl = "https://{pt-infra-dev-eventproc}.s3.amazonaws.com/uploads/2021_07_27-22_47_39/test-put-obj-file"
         s3uri = "s3://{0}/{1}".format(bucket, key)
         # todo carly: put link in postgres, return customer-facing link
         return s3uri
