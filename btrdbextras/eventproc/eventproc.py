@@ -29,6 +29,7 @@ import json
 import warnings
 import hashlib
 import uuid
+import random, string, psycopg2
 import boto3
 from botocore.exceptions import ClientError, NoCredentialsError
 
@@ -71,6 +72,30 @@ def check_s3_creds(s3client, bucket):
         if b["Name"] == bucket:
             found = True
     return found
+
+def insert_to_downloads(filepath, md):
+    pgendpoint = os.getenv("POSTGRES_ENDPOINT")
+    pgpwd = os.getenv("POSTGRES_PASSWORD")
+    dsn = "postgres://downloads:{0}@{1}/btrdb?sslmode=disable".format(pgpwd, pgendpoint)
+
+    sql = "INSERT INTO downloads(code, service, filepath, metadata) VALUES(%s, 'eventproc', %s, %s);"
+
+    conn = psycopg2.connect(dsn)
+    cur = conn.cursor()
+
+    inserted = False
+    while not inserted:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        inserted = True
+        try:
+            cur.execute(sql, (code, filepath, json.dumps(md)))
+        except psycopg2.errors.UniqueViolation:
+            inserted = False
+        conn.commit()
+    
+    cur.close()
+    conn.close()
+    return code
 
 ##########################################################################
 ## Helper Classes
@@ -240,11 +265,12 @@ def upload_file(file, file_name):
     file: string or a readable file-like object
         Path to the file, or a readable file-like object.
     file_name: string
-        Name that the file will be called on download.
+        Name that the file will be called on download. Maximum 36 characters.
 
     Raises
     ---------
     TypeError: file_name must be a string.
+    ValueError: file_name cannot be longer than 36 characters, is <acutal length>.
     ValueError: If file is a file-like object, it must be readable and seekable.
     ValueError: If file is a string, it must be a path to a file.
     
@@ -260,6 +286,8 @@ def upload_file(file, file_name):
     # check the inputs
     if not isinstance(file_name, str):
         raise TypeError("file_name must be a string.")
+    if len(file_name) > 36:
+        raise ValueError("file_name cannot be longer than 36 characters, is {0}.".format(len(file_name)))
     if isinstance(file, str):
         if not os.path.exists(file):
             raise ValueError("If file is a string, it must be a path to a file.")
@@ -291,7 +319,7 @@ def upload_file(file, file_name):
     # add a hash of the file contents to file metadata
     file_hash = hashlib.sha256()
     BLOCK_SIZE = 1024
-    fb = f.readreadall
+    fb = f.read(BLOCK_SIZE)
     while len(fb) > 0:
         file_hash.update(fb)
         fb = f.read(BLOCK_SIZE)
@@ -299,22 +327,27 @@ def upload_file(file, file_name):
     f.seek(0)
         
     # do the upload
-    key = "eventproc/" + str(uuid.uuid4()) + "/" + file_name
+    s3_filepath = str(uuid.uuid4()) + "/" + file_name
     try:
-        response = s3client.put_object(Body=f, Bucket=bucket, Key=key, Metadata=md)
+        response = s3client.put_object(Body=f, Bucket=bucket, Key="eventproc/" + s3_filepath, Metadata=md)
     except ClientError as e:
         if openfile:
             f.close()
-        warnings.warn("Upload to S3 failed: " + str(e))
-        return None
-
+        raise RuntimeError("Failed to upload to S3")
     if openfile:
         f.close()
+    if response['ResponseMetadata']['HTTPStatusCode'] != 200:
+        raise RuntimeError("Failed to upload to S3")
 
-    if response['ResponseMetadata']['HTTPStatusCode'] == 200:
-        s3uri = "s3://{0}/{1}".format(bucket, key)
-        # todo carly: put link in postgres, return customer-facing link
-        return s3uri
-    
-    warnings.warn("Upload to S3 failed: HTTP Error " + str(response['ResponseMetadata']['HTTPStatusCode']))
-    return None
+    # return customer-facing code. delete from s3 if downloads postgres insert fails.
+    try:
+        code = insert_to_downloads(s3_filepath, md)
+    except (Exception, psycopg2.DatabaseError) as e:
+        # delete file from s3
+        try:
+            s3client.delete_object(Bucket=bucket, Key="eventproc/" + s3_filepath)
+        except ClientError:
+            pass
+        raise RuntimeError("Failed to upload to S3")
+        
+    return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
