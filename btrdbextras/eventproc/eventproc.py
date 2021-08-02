@@ -257,7 +257,6 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
 def upload_file(file, file_name):
     """
     Uploads file to S3. Returns a link to download the file.
-    If the upload is attempted and fails, a warning will be raised before return.
     If the function runs outside of an eventproc handler executing in response to a hook, it will just check the inputs, raise a warning, and not attempt an upload.
 
     Parameters
@@ -270,9 +269,10 @@ def upload_file(file, file_name):
     Raises
     ---------
     TypeError: file_name must be a string.
-    ValueError: file_name cannot be longer than 36 characters, is <acutal length>.
+    ValueError: file_name cannot be longer than 36 characters, is <actual length>.
     ValueError: If file is a file-like object, it must be readable and seekable.
     ValueError: If file is a string, it must be a path to a file.
+    RuntimeError: Failed to upload to S3.
     
     Returns
     ----------
@@ -333,11 +333,11 @@ def upload_file(file, file_name):
     except ClientError as e:
         if openfile:
             f.close()
-        raise RuntimeError("Failed to upload to S3")
+        raise RuntimeError("Failed to upload to S3.")
     if openfile:
         f.close()
     if response['ResponseMetadata']['HTTPStatusCode'] != 200:
-        raise RuntimeError("Failed to upload to S3")
+        raise RuntimeError("Failed to upload to S3.")
 
     # return customer-facing code. delete from s3 if downloads postgres insert fails.
     try:
@@ -348,6 +348,6 @@ def upload_file(file, file_name):
             s3client.delete_object(Bucket=bucket, Key="eventproc/" + s3_filepath)
         except ClientError:
             pass
-        raise RuntimeError("Failed to upload to S3")
+        raise RuntimeError("Failed to upload to S3.")
         
     return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
