@@ -25,15 +25,11 @@ from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 import os
-import json
 import warnings
-import hashlib
 import uuid
-import random, string, psycopg2
-import boto3
-from botocore.exceptions import ClientError, NoCredentialsError
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file']
+_uploads = {}
 
 import grpc
 
@@ -61,41 +57,6 @@ def connect(conn):
             grpc.access_token_call_credentials(apikey)
         )
     )
-
-def check_s3_creds(s3client, bucket):
-    try:
-        buckets = s3client.list_buckets()["Buckets"]
-    except NoCredentialsError as e:
-        return False
-    found = False
-    for b in buckets:
-        if b["Name"] == bucket:
-            found = True
-    return found
-
-def insert_to_downloads(filepath, md):
-    pgendpoint = os.getenv("POSTGRES_ENDPOINT")
-    pgpwd = os.getenv("POSTGRES_PASSWORD")
-    dsn = "postgres://downloads:{0}@{1}/btrdb?sslmode=disable".format(pgpwd, pgendpoint)
-
-    sql = "INSERT INTO downloads(code, service, filepath, metadata) VALUES(%s, 'eventproc', %s, %s);"
-
-    conn = psycopg2.connect(dsn)
-    cur = conn.cursor()
-
-    inserted = False
-    while not inserted:
-        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-        inserted = True
-        try:
-            cur.execute(sql, (code, filepath, json.dumps(md)))
-        except psycopg2.errors.UniqueViolation:
-            inserted = False
-        conn.commit()
-    
-    cur.close()
-    conn.close()
-    return code
 
 ##########################################################################
 ## Helper Classes
@@ -257,97 +218,45 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
 def upload_file(file, file_name):
     """
     Uploads file to S3. Returns a link to download the file.
-    If the function runs outside of an eventproc handler executing in response to a hook, it will just check the inputs, raise a warning, and not attempt an upload.
+    If the function runs outside of an eventproc handler executing in response to a hook, it will just check the inputs, raise a warning, and return None.
 
     Parameters
     ----------
-    file: string or a readable file-like object
-        Path to the file, or a readable file-like object.
+    file: string
+        Path to the file.
     file_name: string
         Name that the file will be called on download. Maximum 36 characters.
 
     Raises
     ---------
+    TypeError: file must be a string.
     TypeError: file_name must be a string.
-    ValueError: file_name cannot be longer than 36 characters, is <actual length>.
-    ValueError: If file is a file-like object, it must be readable and seekable.
-    ValueError: If file is a string, it must be a path to a file.
-    RuntimeError: Failed to upload to S3.
+    ValueError: file must be a path to a file.
+    ValueError: file_name cannot be longer than 32 characters, is <actual length>.
     
     Returns
     ----------
-    string: Download link to the object. None if the upload failed or was not attempted.
+    string: Download link to the object. None if upload was not attempted.
     """
-    bucket = os.getenv("BUCKET")
-    mdstr = os.getenv("JOB_MD")
-
-    s3client = boto3.client('s3')
     
     # check the inputs
+    if not isinstance(file, str):
+        raise TypeError("file must be a string.")
     if not isinstance(file_name, str):
         raise TypeError("file_name must be a string.")
-    if len(file_name) > 36:
-        raise ValueError("file_name cannot be longer than 36 characters, is {0}.".format(len(file_name)))
-    if isinstance(file, str):
-        if not os.path.exists(file):
-            raise ValueError("If file is a string, it must be a path to a file.")
-    else:
-        if not (file.readable() and file.seekable()) :
-            raise ValueError("If file is a file-like object, it must be readable and seekable.")
+    if not os.path.exists(file):
+            raise ValueError("file must be a path to a file.")
+    if len(file_name) > 32:
+        raise ValueError("file_name cannot be longer than 32 characters, is {0}.".format(len(file_name)))
+        
+    # queue the upload, to be completed by the executor when the handler completes
+    code = str(uuid.uuid4().hex)
+    s3_filepath = code + "/" + file_name
+    _uploads[code] = [file, s3_filepath]
 
     # check the s3 connection
-    if not check_s3_creds(s3client, bucket):
+    if not os.getenv("EXECUTOR_CONTEXT") == "true":
         warnings.warn("upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3.")
         return None
-    
-    # get job metadata
-    mdstr = os.getenv("JOB_MD")
-    if mdstr != None:
-        md = json.loads(mdstr)
-    else:
-        md = json.loads("{}")
-        md["error"] = "JOB_MD not set by eventproc-executor"
-
-    # open file if it was a path
-    if isinstance(file, str):
-        f = open(file, "rb")
-        openfile = True
-    else:
-        f = file
-        openfile = False
-
-    # add a hash of the file contents to file metadata
-    file_hash = hashlib.sha256()
-    BLOCK_SIZE = 1024
-    fb = f.read(BLOCK_SIZE)
-    while len(fb) > 0:
-        file_hash.update(fb)
-        fb = f.read(BLOCK_SIZE)
-    md["file_hash"] = file_hash.hexdigest()
-    f.seek(0)
-        
-    # do the upload
-    s3_filepath = str(uuid.uuid4()) + "/" + file_name
-    try:
-        response = s3client.put_object(Body=f, Bucket=bucket, Key="eventproc/" + s3_filepath, Metadata=md)
-    except ClientError as e:
-        if openfile:
-            f.close()
-        raise RuntimeError("Failed to upload to S3.")
-    if openfile:
-        f.close()
-    if response['ResponseMetadata']['HTTPStatusCode'] != 200:
-        raise RuntimeError("Failed to upload to S3.")
-
-    # return customer-facing code. delete from s3 if downloads postgres insert fails.
-    try:
-        code = insert_to_downloads(s3_filepath, md)
-    except (Exception, psycopg2.DatabaseError) as e:
-        # delete file from s3
-        try:
-            s3client.delete_object(Bucket=bucket, Key="eventproc/" + s3_filepath)
-        except ClientError:
-            pass
-        raise RuntimeError("Failed to upload to S3.")
         
     return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
