@@ -218,7 +218,8 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
 def upload_file(file, file_name):
     """
     Uploads file to S3. Returns a link to download the file.
-    If the function runs outside of an eventproc handler executing in response to a hook, it will just check the inputs, raise a warning, and return None.
+    If the function runs outside of an eventproc handler executing in response to
+    a hook, it will just check the inputs, raise a warning, and return None.
 
     Parameters
     ----------
@@ -251,11 +252,13 @@ def upload_file(file, file_name):
 
     # check the context
     if not os.getenv("EXECUTOR_CONTEXT") == "true":
-        warnings.warn("upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3.")
+        m = "upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3."
+        warnings.warn(m)
         return None
         
     # queue the upload, to be completed by the executor when the handler completes
     code = str(uuid.uuid4().hex)
     _uploads[code] = [file, file_name]
-        
+    
+    # todo: take this from an env variable when implementing downloads service
     return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
