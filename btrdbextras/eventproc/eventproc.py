@@ -231,7 +231,7 @@ def upload_file(file, file_name):
     ---------
     TypeError: file must be a string.
     TypeError: file_name must be a string.
-    ValueError: file must be a path to a file.
+    ValueError: file must be a path to a file, relative to the home directory.
     ValueError: file_name cannot be longer than 32 characters, is <actual length>.
     
     Returns
@@ -245,7 +245,7 @@ def upload_file(file, file_name):
     if not isinstance(file_name, str):
         raise TypeError("file_name must be a string.")
     if not os.path.exists(file):
-            raise ValueError("file must be a path to a file.")
+        raise ValueError("file must be a path to a file.")
     if len(file_name) > 32:
         raise ValueError("file_name cannot be longer than 32 characters, is {0}.".format(len(file_name)))
 
@@ -256,6 +256,6 @@ def upload_file(file, file_name):
         
     # queue the upload, to be completed by the executor when the handler completes
     code = str(uuid.uuid4().hex)
-    _uploads[code] = [os.getenv("HOME") + "/" + file, file_name]
+    _uploads[code] = [file, file_name]
         
     return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
