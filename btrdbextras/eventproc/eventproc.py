@@ -28,7 +28,7 @@ import os
 import warnings
 import uuid
 
-__all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file']
+__all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file', '_uploads']
 _uploads = {}
 
 import grpc
@@ -248,15 +248,14 @@ def upload_file(file, file_name):
             raise ValueError("file must be a path to a file.")
     if len(file_name) > 32:
         raise ValueError("file_name cannot be longer than 32 characters, is {0}.".format(len(file_name)))
-        
-    # queue the upload, to be completed by the executor when the handler completes
-    code = str(uuid.uuid4().hex)
-    s3_filepath = code + "/" + file_name
-    _uploads[code] = [file, s3_filepath]
 
-    # check the s3 connection
+    # check the context
     if not os.getenv("EXECUTOR_CONTEXT") == "true":
         warnings.warn("upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3.")
         return None
+        
+    # queue the upload, to be completed by the executor when the handler completes
+    code = str(uuid.uuid4().hex)
+    _uploads[code] = [os.getenv("HOME") + "/" + file, file_name]
         
     return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
