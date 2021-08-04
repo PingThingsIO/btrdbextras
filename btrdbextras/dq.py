@@ -41,7 +41,7 @@ class DQDistillate(Stream):
             raise AmbiguousDistillateError(f"ambiguous distiller name. contains references to [{', '.join(types)}]")
         self.type = types[0]
 
-    def contains_event(self, start=None, end=None, depth=30):
+    def contains_issue(self, start=None, end=None, depth=30):
         """
         Tells whether a distillate stream contains an event, which is denoted by 1 values
 
@@ -54,15 +54,24 @@ class DQDistillate(Stream):
         depth: (optional) int
             The precision of the window duration as a power of 2 in nanoseconds.
             e.g 30 would make the window duration accurate to roughly 1 second
-        
+
         Returns
         -------
         bool
             Returns bool indicating whether or not the distillate stream contains an event
         """
-        start = to_nanoseconds(start) or self.earliest()[0].time
-        # adding 1 to end time because end is exclusive in windows()
-        end = to_nanoseconds(end) or self.latest()[0].time + 1
+        # NOTE: need to be careful about unpacking initially in case earliest or latest
+        # returns None, which happens when there is no data
+        if start is None:
+            earliest = self.earliest()
+            start = earliest[0].time if earliest else None
+
+        if end is None:
+            latest = self.latest()
+            # adding 1 to end time because end is exclusive in windows()
+            end = latest[0].time +1 if latest else None
+
+        start, end = to_nanoseconds(start), to_nanoseconds(end)
         # There's no event if there's no data
         if start is None and end is None:
             return False
@@ -75,8 +84,7 @@ class DQDistillate(Stream):
 
 class DQStream(Stream):
     """
-    Subsets StreamSet object. Contains an original stream along with its
-    distillate Streams
+    Subsets Stream object. Contains a regular BTrDB stream along with its distillate Streams
 
     Parameters
     ----------
@@ -120,34 +128,29 @@ class DQStream(Stream):
         """
         return self._distillates
         
-    def list_distillates(self, notebook=False):
+    def list_distillates(self):
         """
-        Outputs table showing which distillates the Stream has available
-
-        Parameters
-        ----------
-        notebook: bool
-            Whether or not this function is run from a notebook. Ensures
-            legible formatting
+        Outputs dict that shows which distillates the DQStream has available
 
         Returns
         -------
-        str
-            Table showing which distillates the Stream has available
+        dict
+            Dict containing uuid, collection, and name of the DQStream, as well as bool values
+            for each distiller that denote which distillates are available to the DQStream
         """
-        fmt = "html" if notebook else None
-        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
-        temp = [str(self.uuid)[:8] + "...", self.collection, self.name]
-        for distiller in KNOWN_DISTILLER_TYPES:
-            try:
-                _ = self[distiller]
-                temp.append(u'\u2713')
-            except KeyError:
-                temp.append("x")
-        table.append(temp)
-        return tabulate(table, headers="firstrow", tablefmt=fmt)
+        info = {
+            "uuid": str(self.uuid),
+            "collection": self.collection,
+            "name": self.name,
+        }
+        distillers = {
+            distiller: True if self[distiller]
+            else False for distiller in KNOWN_DISTILLER_TYPES
+        }
+        # combine basic info with distiller info
+        return {**info, **distillers}
 
-    def contains_any_event(self, start=None, end=None, depth=30):
+    def contains_any_issue(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
 
@@ -170,11 +173,11 @@ class DQStream(Stream):
         if len(self._distillates) == 0:
             return None
         for distillate in self._distillates:
-            if distillate.contains_event(start=start, end=end, depth=depth):
+            if distillate.contains_issue(start=start, end=end, depth=depth):
                 return True
         return False
 
-    def contains_event(self, distil_type, start=None, end=None, depth=30):
+    def contains_issue(self, distil_type, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains a specific data quality event
 
@@ -196,8 +199,11 @@ class DQStream(Stream):
             Returns bool indicating whether or not any of the underlying streams contain
             a certain event
         """
-        distillate = self[distil_type]
-        return distillate.contains_event(start=start, end=end, depth=depth)
+        try:
+            distillate = self[distil_type]
+        except KeyError:
+            return None
+        return distillate.contains_issue(start=start, end=end, depth=depth)
     
     def __getitem__(self, item):
         for distillate in self._distillates:
@@ -257,9 +263,9 @@ class DQStreamSet(StreamSet):
 
         # add args as table columns if user provides them
         if additional_cols:
-         if not all(a in KNOWN_TAGS for a in additional_cols):
-             contains_annotations=True
-         table[0].extend(additional_cols)
+            if not all(a in KNOWN_TAGS for a in additional_cols):
+                contains_annotations=True
+            table[0].extend(additional_cols)
 
         # query for metadata for all streams upfront
         # store metadata results in a dict where uuid is the key and metadata dict is values
@@ -301,36 +307,24 @@ class DQStreamSet(StreamSet):
             table.append(temp)
         return tabulate(table, headers="firstrow", tablefmt=fmt)
 
-    def list_distillates(self, notebook=False):
+    def list_distillates(self):
         """
         Outputs table showing which distillates each underlying Stream
         has available
 
-        Parameters
-        ----------
-        notebook: bool
-            Whether or not this function is run from a notebook. Ensures
-            legible formatting
-
         Returns
         -------
-        str
-            Table showing which distillates each Stream has available
+        list
+            list of dicts containing uuid, collection, and name of the DQStream,
+            as well as bool values for each distiller that denote which distillates
+            are available to the DQStream
         """
-        fmt = "html" if notebook else None
-        table = [["uuid", "collection", "name"] + KNOWN_DISTILLER_TYPES]
-        for stream in self._streams:
-            temp = [str(stream.uuid)[:8] + "...", stream.collection, stream.name]
-            for distiller in KNOWN_DISTILLER_TYPES:
-                try:
-                    _ = stream[distiller]
-                    temp.append(u'\u2713')
-                except KeyError:
-                    temp.append("x")
-            table.append(temp)
-        return tabulate(table, headers="firstrow", tablefmt=fmt)
+        return [
+            stream.list_distillates()
+            for stream in self._streams
+        ]
 
-    def contains_any_event(self, start=None, end=None, depth=30):
+    def contains_any_issue(self, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains any data quality events
 
@@ -351,11 +345,11 @@ class DQStreamSet(StreamSet):
             contain any event
         """
         return {
-            str(stream.uuid): stream.contains_any_event(start=start, end=end, depth=depth)
+            str(stream.uuid): stream.contains_any_issue(start=start, end=end, depth=depth)
             for stream in self._streams
         }
 
-    def contains_event(self, distil_type, start=None, end=None, depth=30):
+    def contains_issue(self, distil_type, start=None, end=None, depth=30):
         """
         Indicates whether this group of streams contains a specific data quality event
 
@@ -377,16 +371,10 @@ class DQStreamSet(StreamSet):
             Returns dict indicating whether or each of the underlying streams contain
             a certain event
         """
-        out = {}
-        for stream in self._streams:
-            try:
-                contains = stream.contains_event(distil_type, start=start, end=end, depth=depth)
-            except KeyError:
-                # NOTE: this might be a bad idea. How to represent streams that do not have this 
-                # distillate stream?
-                contains = None
-            out[str(stream.uuid)] = contains
-        return out
+        return {
+            str(stream.uuid): stream.contains_issue(distil_type, start=start, end=end, depth=depth)
+            for stream in self._streams
+        }
     
     def __getitem__(self, index):
         """
