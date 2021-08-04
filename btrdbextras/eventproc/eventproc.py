@@ -24,8 +24,12 @@ from btrdb.utils.timez import ns_to_datetime
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
+import os
+import warnings
+import uuid
 
-__all__ = ['hooks', 'list_handlers', 'register', 'deregister']
+__all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file', '_uploads']
+_uploads = {}
 
 import grpc
 
@@ -53,7 +57,6 @@ def connect(conn):
             grpc.access_token_call_credentials(apikey)
         )
     )
-
 
 ##########################################################################
 ## Helper Classes
@@ -211,3 +214,51 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
         return func
 
     return inner
+
+def upload_file(file, file_name):
+    """
+    Uploads file to S3. Returns a link to download the file.
+    If the function runs outside of an eventproc handler executing in response to
+    a hook, it will just check the inputs, raise a warning, and return None.
+
+    Parameters
+    ----------
+    file: string
+        Path to the file.
+    file_name: string
+        Name that the file will be called on download. Maximum 36 characters.
+
+    Raises
+    ---------
+    TypeError: file must be a string.
+    TypeError: file_name must be a string.
+    ValueError: file must be a path to a file, relative to the home directory.
+    ValueError: file_name cannot be longer than 32 characters, is <actual length>.
+    
+    Returns
+    ----------
+    string: Download link to the object. None if upload was not attempted.
+    """
+    
+    # check the inputs
+    if not isinstance(file, str):
+        raise TypeError("file must be a string.")
+    if not isinstance(file_name, str):
+        raise TypeError("file_name must be a string.")
+    if not os.path.exists(file):
+        raise ValueError("file must be a path to a file.")
+    if len(file_name) > 32:
+        raise ValueError("file_name cannot be longer than 32 characters, is {0}.".format(len(file_name)))
+
+    # check the context
+    if not os.getenv("EXECUTOR_CONTEXT") == "true":
+        m = "upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3."
+        warnings.warn(m)
+        return None
+        
+    # queue the upload, to be completed by the executor when the handler completes
+    code = str(uuid.uuid4().hex)
+    _uploads[code] = [file, file_name]
+    
+    # todo: take this from an env variable when implementing downloads service
+    return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
