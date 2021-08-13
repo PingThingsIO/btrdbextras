@@ -260,5 +260,4 @@ def upload_file(file, file_name):
     code = str(uuid.uuid4().hex)
     _uploads[code] = [file, file_name]
     
-    # todo: take this from an env variable when implementing downloads service
-    return "https://downloads.{0}/{1}".format(os.getenv("CLUSTER_NAME"), code)
+    return "https://{0}/{1}".format(os.getenv("DOWNLOADS_ENDPOINT"), code)
