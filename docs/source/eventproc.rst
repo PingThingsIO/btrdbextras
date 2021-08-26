@@ -168,6 +168,7 @@ Uploading a File From a Handler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 To save information from a handler into a file for later access, the `upload_file` function is available. It uploads file to S3 and returns a link to download the file.
 Below is an example of it's use. Further information about the function behavior can be found with `help(upload_file)`.
+
 .. code-block:: python
 
     >>> @register(
