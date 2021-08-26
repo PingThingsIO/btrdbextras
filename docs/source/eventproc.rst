@@ -164,6 +164,27 @@ The remove an existing event handler, a `deregister` function is available.  It 
     >>> deregister(conn, 5)
     True
 
+Uploading a File From a Handler
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To save information from a handler into a file for later access, the `upload_file` function is available. It uploads file to S3 and returns a link to download the file.
+Below is an example of it's use. Further information about the function behavior can be found with `help(upload_file)`.
+.. code-block:: python
+
+    >>> @register(
+    ...     conn=conn,
+    ...     name="upload-demo",
+    ...     hook="ctingress.on_complete",
+    ...     notify_on_success="success@example.com",
+    ...     notify_on_failure="failure@example.com",
+    ...     tags=["upload-demo"]
+    ... )
+    >>> def uploadtest(*args, **kwargs):
+    ...     path = "demo_filepath"
+    ...     f = open(path, "x")
+    ...     f.write("hello world!")
+    ...     f.close()
+    ...     return ep.upload_file(path, "demo_filename")
+
 
 Troubleshooting
 --------------------------
