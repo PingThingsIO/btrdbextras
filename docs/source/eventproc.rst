@@ -164,27 +164,74 @@ The remove an existing event handler, a `deregister` function is available.  It 
     >>> deregister(conn, 5)
     True
 
-Uploading a File From a Handler
+
+Writing Handlers
+--------------------------
+
+Code executing in a handler can import and use packages and read/write files, similarly to how the handler function works in the environment you defined/registered the handler in.
+
+Using Packages
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-To save information from a handler into a file for later access, the `upload_file` function is available. It uploads file to S3 and returns a link to download the file.
-Below is an example of it's use. Further information about the function behavior can be found with `help(upload_file)`.
+
+Any packages used within a handler must be imported within that handler as follows.
+
+.. code-block:: python
+
+    >>> def import_handler(*args, **kwargs):
+    ...     import pandas as pd
+    ...     df = pd.DataFrame([['a', 'b'], ['c', 'd']],
+                            index=['row 1', 'row 2'],
+                            columns=['col 1', 'col 2'])
+    ...     return "done"
+
+The exception to this is the `btrdbextras.eventproc` module, which is already imported as `ep` in the handler's execution environment. As a result, both of the following uses of the `eventproc` module are valid.
+
+.. code-block:: python
+
+    >>> def upload_handler_v1(*args, **kwargs):
+    ...     from btrdbextras.eventproc import upload_file
+    ...     path = "demo_filepath"
+    ...     f = open(path, "x")
+    ...     f.write("hello world!")
+    ...     f.close()
+    ...     url = upload_file(path, name_on_download)
+    ...     return url
+    >>>
+    >>> def upload_handler_v2(*args, **kwargs):
+    ...     path = "demo_filepath"
+    ...     f = open(path, "x")
+    ...     f.write("hello world!")
+    ...     f.close()
+    ...     url = ep.upload_file(path, name_on_download)
+    ...     return url
+
+
+Working with Files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Any file created by a handler will be destroyed after the handler completes, and will not persist in the handler's execution environment. To access files written by a handler outside of the handler's execution context, use the `upload_file` function. For example, the following code registers a handler that creates and uploads an excel file. The return value is a link to download the file (username and password authentication will be necessary for file download).
 
 .. code-block:: python
 
     >>> @register(
     ...     conn=conn,
-    ...     name="upload-demo",
+    ...     name="excel-demo",
     ...     hook="ctingress.on_complete",
     ...     notify_on_success="success@example.com",
     ...     notify_on_failure="failure@example.com",
-    ...     tags=["upload-demo"]
-    ... )
-    >>> def uploadtest(*args, **kwargs):
-    ...     path = "demo_filepath"
-    ...     f = open(path, "x")
-    ...     f.write("hello world!")
-    ...     f.close()
-    ...     return ep.upload_file(path, "demo_filename")
+    ...     tags=["excel-demo"]
+    ...     )
+    >>>
+    >>> def upload_handler(*args, **kwargs):
+    ...     import pandas as pd
+    ...     path = "output.xlsx"
+    ...     name_on_download = "excel_test.xlsx"
+    ...     df = pd.DataFrame([['a', 'b'], ['c', 'd']],
+                            index=['row 1', 'row 2'],
+                            columns=['col 1', 'col 2'])
+    ...     df.to_excel(path)
+    ...     url = ep.upload_file(path, name_on_download)
+    ...     return url
 
 
 Troubleshooting
