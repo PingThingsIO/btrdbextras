@@ -191,7 +191,7 @@ The exception to this is the `btrdbextras.eventproc` module, which is already im
     >>> def upload_handler_v1(*args, **kwargs):
     ...     from btrdbextras.eventproc import upload_file
     ...     path = "demo_filepath"
-    ...     f = open(path, "x")
+    ...     f = open(path, "w")
     ...     f.write("hello world!")
     ...     f.close()
     ...     url = upload_file(path, name_on_download)
@@ -199,7 +199,7 @@ The exception to this is the `btrdbextras.eventproc` module, which is already im
     >>>
     >>> def upload_handler_v2(*args, **kwargs):
     ...     path = "demo_filepath"
-    ...     f = open(path, "x")
+    ...     f = open(path, "w")
     ...     f.write("hello world!")
     ...     f.close()
     ...     url = ep.upload_file(path, name_on_download)
