@@ -226,7 +226,7 @@ def upload_file(file, file_name):
     file: string
         Path to the file.
     file_name: string
-        Name that the file will be called on download. Maximum 36 characters.
+        Name that the file will be called on download. Maximum 200 characters.
 
     Raises
     ---------
