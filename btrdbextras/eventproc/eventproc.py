@@ -233,7 +233,7 @@ def upload_file(file, file_name):
     TypeError: file must be a string.
     TypeError: file_name must be a string.
     ValueError: file must be a path to a file, relative to the home directory.
-    ValueError: file_name cannot be longer than 32 characters, is <actual length>.
+    ValueError: file_name cannot be longer than 200 characters, is <actual length>.
     
     Returns
     ----------
@@ -247,8 +247,8 @@ def upload_file(file, file_name):
         raise TypeError("file_name must be a string.")
     if not os.path.exists(file):
         raise ValueError("file must be a path to a file.")
-    if len(file_name) > 32:
-        raise ValueError("file_name cannot be longer than 32 characters, is {0}.".format(len(file_name)))
+    if len(file_name) > 200:
+        raise ValueError("file_name cannot be longer than 200 characters, is {0}.".format(len(file_name)))
 
     # check the context
     if not os.getenv("EXECUTOR_CONTEXT") == "true":
