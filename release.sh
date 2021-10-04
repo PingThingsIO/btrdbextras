@@ -35,8 +35,9 @@ fi
 
 echo "Setting version to v$1.$2.$3"
 
-VERION_CODE="__version__ = 'v$1.$2.$3'"
-sed -i "s/^__version__.*$/${VERION_CODE}/g" btrdbextras/__init__.py
+VERSION_CODE="__version__ = 'v$1.$2.$3'"
+sed -i'.bak' "s/^__version__.*$/${VERSION_CODE}/" btrdbextras/__init__.py
+rm btrdbextras/__init__.py.bak
 
 git add btrdbextras/__init__.py
 git commit -m "Release v$1.$2.$3"
