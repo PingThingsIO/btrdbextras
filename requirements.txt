@@ -10,6 +10,7 @@ btrdb>=5.11.7
 
 # Utilities and helpers
 tabulate==0.8.9
+certifi
 
 # Readthedocs
 sphinx_glpi_theme
