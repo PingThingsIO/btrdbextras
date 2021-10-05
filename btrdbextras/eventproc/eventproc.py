@@ -16,22 +16,20 @@ Event processing related functions.
 ##########################################################################
 
 import io
-from collections import namedtuple
-
-import dill
-from btrdb.utils.timez import ns_to_datetime
-
-from btrdbextras.eventproc.protobuff import api_pb2
-from btrdbextras.eventproc.protobuff import api_pb2_grpc
-
 import os
 import warnings
 import uuid
+from collections import namedtuple
+
+import dill
+import grpc
+import certifi
+from btrdb.utils.timez import ns_to_datetime
+from btrdbextras.eventproc.protobuff import api_pb2
+from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
 __all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file', '_uploads']
 _uploads = {}
-
-import grpc
 
 PATH_PREFIX="/eventproc"
 
@@ -50,13 +48,37 @@ def connect(conn):
     if apikey is None or apikey == "":
         raise ValueError("must supply an API key")
 
+    # grpc bundles its own CA certs which will work for all normal SSL
+    # certificates but will fail for custom CA certs. Allow the user
+    # to specify a CA bundle via env var to overcome this
+    env_bundle = os.getenv("BTRDB_CA_BUNDLE", "")
+
+    # certifi certs are provided as part of this package install
+    # https://github.com/certifi/python-certifi
+    lib_certs = certifi.where()
+
+    ca_bundle = env_bundle
+
+    if ca_bundle == "":
+        ca_bundle = lib_certs
+    try:
+        with open(ca_bundle, "rb") as f:
+            contents = f.read()
+    except Exception:
+        if env_bundle != "":
+            # The user has given us something but we can't use it, we need to make noise
+            raise Exception("BTRDB_CA_BUNDLE(%s) env is defined but could not read file" % ca_bundle)
+        else:
+            contents = None
+
     return grpc.secure_channel(
         endpoint,
         grpc.composite_channel_credentials(
-            grpc.ssl_channel_credentials(None),
+            grpc.ssl_channel_credentials(contents),
             grpc.access_token_call_credentials(apikey)
         )
     )
+
 
 ##########################################################################
 ## Helper Classes
