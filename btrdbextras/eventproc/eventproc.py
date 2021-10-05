@@ -24,7 +24,6 @@ from collections import namedtuple
 import dill
 import grpc
 import certifi
-from grpc._cython.cygrpc import CompressionAlgorithm
 from btrdb.utils.timez import ns_to_datetime
 from btrdbextras.eventproc.protobuff import api_pb2
 from btrdbextras.eventproc.protobuff import api_pb2_grpc
