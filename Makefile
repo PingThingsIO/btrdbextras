@@ -5,6 +5,12 @@ SHELL := /bin/bash
 PROJECT := btrdbextras
 LOCALPATH := $(CURDIR)/$(PROJECT)
 
+# Sphinx configuration
+SPHINXOPTS    	=
+SPHINXBUILD   	= sphinx-build
+SPHINXBUILDDIR  = docs/build
+SPHINXSOURCEDIR = docs/source
+
 # Export targets not associated with files
 .PHONY: test grpc
 
@@ -22,7 +28,7 @@ clean:
 	-rm -rf $(PROJECT).egg-info
 	-rm -rf .eggs
 	-rm -rf site
-	-rm -rf docs/_build
+	-rm -rf docs/build
 	-rm -rf platform-builds meta.yaml
 
 # Generate new grpc code
@@ -48,5 +54,9 @@ install:
 
 # Deploy to PyPI
 deploy:
-	python setup.py register
-	twine upload dist/*
+	# python setup.py register
+	twine upload dist/* --verbose
+
+# Build html version of docs
+html:
+	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(SPHINXSOURCEDIR) $(SPHINXBUILDDIR)

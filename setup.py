@@ -22,6 +22,8 @@ import codecs
 from setuptools import setup
 from setuptools import find_packages
 
+from btrdbextras import __version__
+
 ##########################################################################
 ## Package Information
 ##########################################################################
@@ -33,10 +35,10 @@ AUTHOR       = "Allen Leis"
 EMAIL        = "allen@pingthings.io"
 MAINTAINER   = "Allen Leis"
 LICENSE      = "BSD-3-Clause"
-REPOSITORY   = "https://github.com/BTrDB/btrdb-python"
+REPOSITORY   = "https://github.com/PingThingsIO/btrdbextras"
 PACKAGE      = "btrdb"
-URL          = "http://btrdb.io/"
-DOCS_URL     = "https://btrdb.readthedocs.io/en/latest/"
+URL          = "https://btrdbextras.readthedocs.io/en/latest/"
+DOCS_URL     = "https://btrdbextras.readthedocs.io/en/latest/"
 
 ## Define the keywords
 KEYWORDS     = ('btrdb', 'timeseries', 'database')
@@ -54,6 +56,7 @@ CLASSIFIERS  = (
     'Programming Language :: Python',
     'Programming Language :: Python :: 3.6',
     'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
     'Topic :: Database',
     'Topic :: Software Development :: Libraries :: Python Modules',
 )
@@ -61,7 +64,7 @@ CLASSIFIERS  = (
 ## Important Paths
 PROJECT      = os.path.abspath(os.path.dirname(__file__))
 REQUIRE_PATH = "requirements.txt"
-VERSION_PATH = "version.py"
+VERSION_PATH = os.path.join(PACKAGE, "version.py")
 PKG_DESCRIBE = "DESCRIPTION.md"
 
 ## Directories to ignore in find_packages
@@ -80,17 +83,6 @@ def read(*parts):
     """
     with codecs.open(os.path.join(PROJECT, *parts), 'rb', 'utf-8') as f:
         return f.read()
-
-
-def get_version(path=VERSION_PATH):
-    """
-    Reads the python file defined in the VERSION_PATH to find the get_version
-    function, and executes it to ensure that it is loaded correctly. Separating
-    the version in this way ensures no additional code is executed.
-    """
-    namespace = {}
-    exec(read(path), namespace)
-    return namespace['get_version'](short=True)
 
 
 def get_requires(path=REQUIRE_PATH):
@@ -123,7 +115,7 @@ def get_description_type(path=PKG_DESCRIBE):
 
 config = {
     "name": NAME,
-    "version": get_version(),
+    "version": __version__,
     "description": DESCRIPTION,
     "long_description": read(PKG_DESCRIBE),
     "long_description_content_type": get_description_type(PKG_DESCRIBE),
@@ -137,11 +129,11 @@ config = {
     "maintainer_email": EMAIL,
     "project_urls": {
         "Documentation": DOCS_URL,
-        "Download": "{}/tarball/v{}".format(REPOSITORY, get_version()),
+        "Download": "{}/tarball/v{}".format(REPOSITORY, __version__),
         "Source": REPOSITORY,
         "Tracker": "{}/issues".format(REPOSITORY),
     },
-    "download_url": "{}/tarball/v{}".format(REPOSITORY, get_version()),
+    "download_url": "{}/tarball/v{}".format(REPOSITORY, __version__),
     "packages": find_packages(where=PROJECT, exclude=EXCLUDES),
     "package_data": {
         "btrdb": ["grpcinterface/btrdb.proto"],
