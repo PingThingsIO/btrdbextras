@@ -16,12 +16,15 @@ Connection related objects
 ##########################################################################
 
 import os
+
 import grpc
 
-PATH_PREFIX="/eventproc"
+PATH_PREFIX = "/eventproc"
 
 
-def connect(endpoint=os.environ.get("BTRDB_ENDPOINTS"), apikey=os.environ.get("BTRDB_API_KEY")):
+def connect(
+    endpoint=os.environ.get("BTRDB_ENDPOINTS"), apikey=os.environ.get("BTRDB_API_KEY")
+):
     addrport = endpoint.split(":", 2)
     endpoint += PATH_PREFIX
 
@@ -35,6 +38,6 @@ def connect(endpoint=os.environ.get("BTRDB_ENDPOINTS"), apikey=os.environ.get("B
         endpoint,
         grpc.composite_channel_credentials(
             grpc.ssl_channel_credentials(None),
-            grpc.access_token_call_credentials(apikey)
-        )
+            grpc.access_token_call_credentials(apikey),
+        ),
     )
