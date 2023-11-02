@@ -201,18 +201,15 @@ def get_data(db, uuids, start, end, pointwidth, legend):
 
     # Graphql mutation
     query = """
-        mutation CreatePermalink($data: Json!) {
-            CreatePermalink(body: { data: $data }) {
-              error
-              permalink {
-                id
-                version
-                data
-                author
-                createdAt
-                updatedAt
+        mutation CreatePermalink($data: Json!, $bookmark: Json, $public: Json) {
+            CreatePermalink(body: { data: $data, bookmark: $bookmark, public: $public }) {
+              error {
+                code
+                msg
               }
-              __typename
+              permalink {
+                uuid
+              }
             }
           }
     """
