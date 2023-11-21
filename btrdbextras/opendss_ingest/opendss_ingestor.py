@@ -10,8 +10,6 @@ from btrdb.utils.timez import datetime_to_ns
 import simulation_utils as sims
 from datetime import datetime, timedelta
 
-%matplotlib inline
-
 import importlib
 
 importlib.reload(sims);
@@ -39,7 +37,7 @@ streams_dict = sims.create_streams(prefix, collections, names, tags, annotations
 # The following cell generates data that will be converted into streams. 
 # For convenience, we back-calculate the number of samples from a user specified sample rate (`fs`) and simulation duration (`start_time` to `end_time`). However, keep in mind that the simulation has no inherent sense of time - we are abitrarily assigning timestamps to each simulation result. 
 #%%
-# The number of samples to generate
+# Samples to generate
 start_time = datetime(2022, 1, 1, 0, 0, 0)
 end_time = datetime(2022, 1, 1, 0, 1, 0)
 fs = 30  # Hz

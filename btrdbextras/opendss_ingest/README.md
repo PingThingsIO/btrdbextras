@@ -1,4 +1,4 @@
-# OpenDSS Simulation
+# OpenDSS Simulation Ingestor
 
 ## What is OpenDSS?
 [OpenDSS](https://www.epri.com/pages/sa/opendss) is an open source tool for simulating electrical distribution networks. For us, it may be useful for generating realistic grid data from particular physical contexts---for example, measurements on two ends of a line, or two ends of a transformer---without any data privacy concerns. In this sense, it is especially useful for the Dominion Apps project, for which we would otherwise need to prototype and test on Dominion's PMU data, access to which is restricted.
