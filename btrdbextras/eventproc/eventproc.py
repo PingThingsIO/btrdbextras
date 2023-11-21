@@ -17,25 +17,33 @@ Event processing related functions.
 
 import io
 import os
-import warnings
 import uuid
+import warnings
 from collections import namedtuple
 
+import certifi
 import dill
 import grpc
-import certifi
 from btrdb.utils.timez import ns_to_datetime
-from btrdbextras.eventproc.protobuff import api_pb2
-from btrdbextras.eventproc.protobuff import api_pb2_grpc
 
-__all__ = ['hooks', 'list_handlers', 'register', 'deregister', 'upload_file', '_uploads']
+from btrdbextras.eventproc.protobuff import api_pb2, api_pb2_grpc
+
+__all__ = [
+    "hooks",
+    "list_handlers",
+    "register",
+    "deregister",
+    "upload_file",
+    "_uploads",
+]
 _uploads = {}
 
-PATH_PREFIX="/eventproc"
+PATH_PREFIX = "/eventproc"
 
 ##########################################################################
 ## Helper Functions
 ##########################################################################
+
 
 def connect(conn):
     parts = conn.endpoint.split(":", 2)
@@ -67,7 +75,9 @@ def connect(conn):
     except Exception:
         if env_bundle != "":
             # The user has given us something but we can't use it, we need to make noise
-            raise Exception("BTRDB_CA_BUNDLE(%s) env is defined but could not read file" % ca_bundle)
+            raise Exception(
+                "BTRDB_CA_BUNDLE(%s) env is defined but could not read file" % ca_bundle
+            )
         else:
             contents = None
 
@@ -75,8 +85,8 @@ def connect(conn):
         endpoint,
         grpc.composite_channel_credentials(
             grpc.ssl_channel_credentials(contents),
-            grpc.access_token_call_credentials(apikey)
-        )
+            grpc.access_token_call_credentials(apikey),
+        ),
     )
 
 
@@ -84,7 +94,11 @@ def connect(conn):
 ## Helper Classes
 ##########################################################################
 
-HandlerBase = namedtuple("HandlerBase", "id name hook version notify_on_success notify_on_failure tags created_at created_by updated_at updated_by")
+HandlerBase = namedtuple(
+    "HandlerBase",
+    "id name hook version notify_on_success notify_on_failure tags created_at created_by updated_at updated_by",
+)
+
 
 class Handler(HandlerBase):
     """
@@ -95,10 +109,19 @@ class Handler(HandlerBase):
     @classmethod
     def from_grpc(cls, h):
         return cls(
-            h.id, h.name, h.hook, h.version, h.notify_on_success, h.notify_on_failure,
-            h.tag, ns_to_datetime(h.created_at), h.created_by,
-            ns_to_datetime(h.updated_at), h.updated_by
+            h.id,
+            h.name,
+            h.hook,
+            h.version,
+            h.notify_on_success,
+            h.notify_on_failure,
+            h.tag,
+            ns_to_datetime(h.created_at),
+            h.created_by,
+            ns_to_datetime(h.updated_at),
+            h.updated_by,
         )
+
 
 class Service(object):
     """
@@ -120,7 +143,17 @@ class Service(object):
         for result in response.handlers:
             yield result
 
-    def Register(self, name, hook, func, apikey, notify_on_success, notify_on_failure, dependencies, tags):
+    def Register(
+        self,
+        name,
+        hook,
+        func,
+        apikey,
+        notify_on_success,
+        notify_on_failure,
+        dependencies,
+        tags,
+    ):
         # convert decorated function to bytes
         buff = io.BytesIO()
         dill.dump(func, buff)
@@ -128,14 +161,14 @@ class Service(object):
 
         params = api_pb2.RegisterRequest(
             registration=api_pb2.Registration(
-            name=name,
-            hook=hook,
-            blob=buff.read(),
-            api_key=apikey,
-            notify_on_success=notify_on_success,
-            notify_on_failure=notify_on_failure,
-            dependencies=dependencies,
-            tags=tags,
+                name=name,
+                hook=hook,
+                blob=buff.read(),
+                api_key=apikey,
+                notify_on_success=notify_on_success,
+                notify_on_failure=notify_on_failure,
+                dependencies=dependencies,
+                tags=tags,
             )
         )
 
@@ -153,6 +186,7 @@ class Service(object):
 ## Public Functions
 ##########################################################################
 
+
 def hooks(conn):
     """
     List registered hooks.
@@ -164,6 +198,7 @@ def hooks(conn):
     """
     s = Service(connect(conn))
     return s.ListHooks()
+
 
 def list_handlers(conn, hook=""):
     """
@@ -227,15 +262,24 @@ def register(conn, name, hook, notify_on_success, notify_on_failure, tags=None):
     # inner will actually receive the decorated func but we still have access
     # to the args & kwargs due to closure/scope.
     def inner(func):
-
         # call grpc service to register event handler
         s = Service(connect(conn))
-        _ = s.Register(name, hook, func, conn.apikey, notify_on_success, notify_on_failure, dependencies, tags)
+        _ = s.Register(
+            name,
+            hook,
+            func,
+            conn.apikey,
+            notify_on_success,
+            notify_on_failure,
+            dependencies,
+            tags,
+        )
 
         # return original func back to user
         return func
 
     return inner
+
 
 def upload_file(file, file_name):
     """
@@ -256,12 +300,12 @@ def upload_file(file, file_name):
     TypeError: file_name must be a string.
     ValueError: file must be a path to a file, relative to the home directory.
     ValueError: file_name cannot be longer than 200 characters, is <actual length>.
-    
+
     Returns
     ----------
     string: Download link to the object. None if upload was not attempted.
     """
-    
+
     # check the inputs
     if not isinstance(file, str):
         raise TypeError("file must be a string.")
@@ -270,16 +314,20 @@ def upload_file(file, file_name):
     if not os.path.exists(file):
         raise ValueError("file must be a path to a file.")
     if len(file_name) > 200:
-        raise ValueError("file_name cannot be longer than 200 characters, is {0}.".format(len(file_name)))
+        raise ValueError(
+            "file_name cannot be longer than 200 characters, is {0}.".format(
+                len(file_name)
+            )
+        )
 
     # check the context
     if not os.getenv("EXECUTOR_CONTEXT") == "true":
         m = "upload_file is running in an execution context without the appropriate AWS credentials and will not upload to S3."
         warnings.warn(m)
         return None
-        
+
     # queue the upload, to be completed by the executor when the handler completes
     code = str(uuid.uuid4().hex)
     _uploads[code] = [file, file_name]
-    
+
     return "https://{0}/{1}".format(os.getenv("DOWNLOADS_ENDPOINT"), code)
