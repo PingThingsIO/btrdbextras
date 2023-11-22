@@ -11,6 +11,7 @@ on:
 jobs:
 
   test-suite:
+    if: github.event.pull_request.draft == false
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -30,7 +31,10 @@ jobs:
         pip install -r tests/requirements.txt
     - name: Test with pytest
       run: |
-        pytest
+        pytest --cov-report= --cov=btrdbextras # suppress coverage report here
+    - name: Coverage Report
+      run: |
+        coverage report -m
 
 
   release:
