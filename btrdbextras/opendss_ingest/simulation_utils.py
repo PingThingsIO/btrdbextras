@@ -1,5 +1,5 @@
 import uuid
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import opendssdirect as dss
@@ -110,25 +110,34 @@ def i2dict(con_names: List[str]) -> Dict[str, float]:
                 if phases[pidx] == 0:
                     continue
                 # Construct the complex current.
-                current = (coni[2 * (end * nphases + pidx)] + 1j * coni[
-                    2 * (end * nphases + pidx) + 1])
+                current = (
+                    coni[2 * (end * nphases + pidx)]
+                    + 1j * coni[2 * (end * nphases + pidx) + 1]
+                )
                 # Save the magnitude data
                 col, name = get_lineflow_stream_colname(
-                    con_names[cidx], con_ends[cidx][end],
-                    PHASE_LETTERS[phases[pidx] - 1], True, )
+                    con_names[cidx],
+                    con_ends[cidx][end],
+                    PHASE_LETTERS[phases[pidx] - 1],
+                    True,
+                )
                 I[col + "/" + name] = np.abs(current)
                 # Save the angle data
                 col, name = get_lineflow_stream_colname(
-                    con_names[cidx], con_ends[cidx][end],
-                    PHASE_LETTERS[phases[pidx] - 1], False, )
+                    con_names[cidx],
+                    con_ends[cidx][end],
+                    PHASE_LETTERS[phases[pidx] - 1],
+                    False,
+                )
                 I[col + "/" + name] = np.angle(current, deg=True)
     return I
 
 
 def simulate_network(
-    loads: np.ndarray, load_names: List[str],
-    con_types: Optional[List[str]] = None
-    ) -> Dict[str, np.ndarray]:
+    loads: np.ndarray,
+    load_names: List[str],
+    con_types: Optional[List[str]] = ["Line", "Transformer"],
+) -> Dict[str, np.ndarray]:
     """
     Simulates the network for all the values of load in the input loads.
 
@@ -204,8 +213,9 @@ def simulate_network(
 ###############################################################################
 
 
-def get_stream_info(base_col="simulated") -> Tuple[
-    List[str], List[str], List[Dict[str, str]], List[Dict[str, str]]]:
+def get_stream_info(
+    base_col="simulated",
+) -> Tuple[List[str], List[str], List[Dict[str, str]], List[Dict[str, str]]]:
     """
     Returns collection names, tags, and annotations
     for all the streams we want to create to hold
@@ -247,13 +257,9 @@ def get_stream_info(base_col="simulated") -> Tuple[
             if p == 0:
                 continue
             # Magnitude stream
-            cM, nM, tM, aM = get_voltage_stream_info(
-                bus, phases[p - 1], True, basekV
-            )
+            cM, nM, tM, aM = get_voltage_stream_info(bus, phases[p - 1], True, basekV)
             # Angle stream
-            cA, nA, tA, aA = get_voltage_stream_info(
-                bus, phases[p - 1], False, basekV
-            )
+            cA, nA, tA, aA = get_voltage_stream_info(bus, phases[p - 1], False, basekV)
             # Save results
             collections.append(base_col + "/" + cM)
             collections.append(base_col + "/" + cA)
@@ -268,13 +274,12 @@ def get_stream_info(base_col="simulated") -> Tuple[
     # Get the names of all connectors
     con_names = get_connectors()
     for con in con_names:
-
         # Set the current connector to be "active"
         dss.Circuit.SetActiveElement(con)
 
         # Get the buses that this connector connects
         # (the split removes terminals indicating the phases at each end
-        # so three phase busX.1.2.3 becomes busX)
+        # so three-phase busX.1.2.3 becomes busX)
         to = dss.CktElement.BusNames()[0].split(".")[0]
         frm = dss.CktElement.BusNames()[1].split(".")[0]
         # Check that to and frm are different (these can be the same for capacitors)
@@ -289,17 +294,13 @@ def get_stream_info(base_col="simulated") -> Tuple[
         nphases = int(len(conphases) / 2)
 
         for end in ends:
-
             for p in conphases[0:nphases]:
-
                 # We don't want to save any phase 0 information
                 if p == 0:
                     continue
 
                 # Magnitude stream
-                cM, nM, tM, aM = get_lineflow_stream_info(
-                    con, end, phases[p - 1], True
-                )
+                cM, nM, tM, aM = get_lineflow_stream_info(con, end, phases[p - 1], True)
                 # Angle stream
                 cA, nA, tA, aA = get_lineflow_stream_info(
                     con, end, phases[p - 1], False
@@ -318,7 +319,7 @@ def get_stream_info(base_col="simulated") -> Tuple[
 
 
 def get_existing_streams(col_prefix, conn):
-    """ Get the existing streams under the base collection col_prefix """
+    """Get the existing streams under the base collection col_prefix"""
     streams = conn.streams_in_collection(col_prefix)
     # Build the dictionary of the streams
     streams_dict = {}
@@ -329,9 +330,14 @@ def get_existing_streams(col_prefix, conn):
 
 
 def create_streams(
-    col_prefix: str, collections: List, names, tags, annotations, conn: BTrDB,
-    verbose: bool = False
-    ):
+    col_prefix: str,
+    collections: List,
+    names,
+    tags,
+    annotations,
+    conn: BTrDB,
+    verbose: bool = False,
+):
     """
     Given a set of collections, names, tags, and annotations for intended streams, check if
     they exist. If not, create them.
@@ -361,8 +367,11 @@ def create_streams(
             stream_id = uuid.uuid4()
 
             stream = conn.create(
-                uuid=stream_id, collection=collections[i], tags=tags[i],
-                annotations=annotations[i], )
+                uuid=stream_id,
+                collection=collections[i],
+                tags=tags[i],
+                annotations=annotations[i],
+            )
 
             existing[stream_info] = stream
             if verbose:
@@ -377,9 +386,7 @@ def get_lineflow_stream_info(line_name, line_end, phase, ismag):
         unit = "amps"
     else:
         unit = "degrees"
-    collection, name = get_lineflow_stream_colname(
-        line_name, line_end, phase, ismag
-    )
+    collection, name = get_lineflow_stream_colname(line_name, line_end, phase, ismag)
 
     tags = {"name": name, "unit": unit}
     annotations = {"phase": phase}
@@ -480,7 +487,7 @@ def get_buses():
 
 
 def get_connectors(qualified=["Line", "Transformer"]):
-    """ This method returns all connection elements of the "qualified" types"""
+    """This method returns all connection elements of the "qualified" types"""
     connectors = []
     pds = dss.PDElements.AllNames()
     for pd in pds:
@@ -491,7 +498,7 @@ def get_connectors(qualified=["Line", "Transformer"]):
 
 
 def get_conn_ends(con_names):
-    """ The list of lists with names of connectors ends """
+    """The list of lists with names of connectors ends"""
     con_ends = []
     for con in con_names:
         # Set the current connector to be "active"
@@ -511,7 +518,7 @@ def get_conn_ends(con_names):
 
 
 def get_loads():
-    """ Get all the loads in the network """
+    """Get all the loads in the network"""
     load_names = dss.Loads.AllNames()
     nloads = len(load_names)
 
@@ -525,7 +532,7 @@ def get_loads():
 
 
 def set_loads(load, load_names):
-    """ Set the value of load load_names[i] to load[i] """
+    """Set the value of load load_names[i] to load[i]"""
     nloads = len(load_names)
     for i in range(nloads):
         # Set this load to be active
