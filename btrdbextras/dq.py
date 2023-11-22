@@ -1,20 +1,23 @@
 import re
 import warnings
-from tabulate import tabulate
 
 import btrdb
-from btrdb.stream import StreamSet, Stream
+from btrdb.stream import Stream, StreamSet
 from btrdb.utils.general import pointwidth
 from btrdb.utils.timez import ns_delta, to_nanoseconds
+from tabulate import tabulate
 
 KNOWN_DISTILLER_TYPES = ["repeats", "duplicate-times", "zeros"]
+
 
 class AmbiguousDistillateError(ValueError):
     """
     Raised when a distillate stream's name contains references to multiple known
     data quality distiller names
     """
+
     pass
+
 
 class DQDistillate(Stream):
     """
@@ -24,21 +27,26 @@ class DQDistillate(Stream):
     ----------
     btrdb : BTrDB
         A reference to the BTrDB object connecting this stream back to the
-		physical server.
+                physical server.
     uuid : UUID
         The unique UUID identifier for this stream.
     """
+
     def __init__(self, btrdb, uu):
         # gives all same attrs/methods as Stream
         super().__init__(btrdb, uu)
 
-        # NOTE: this involves determining distiller type based on the distillate 
+        # NOTE: this involves determining distiller type based on the distillate
         # stream name, so we will need to be careful how we name distillates
-        types = re.findall(r"(?=("+'|'.join(KNOWN_DISTILLER_TYPES)+r"))", self.name)
+        types = re.findall(r"(?=(" + "|".join(KNOWN_DISTILLER_TYPES) + r"))", self.name)
         if len(types) == 0:
-            raise ValueError(f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]")
+            raise ValueError(
+                f"unknown distiller type. Must be one of [{', '.join(KNOWN_DISTILLER_TYPES)}]"
+            )
         if len(types) > 1:
-            raise AmbiguousDistillateError(f"ambiguous distiller name. contains references to [{', '.join(types)}]")
+            raise AmbiguousDistillateError(
+                f"ambiguous distiller name. contains references to [{', '.join(types)}]"
+            )
         self.type = types[0]
 
     def contains_issue(self, start=None, end=None, depth=30):
@@ -69,7 +77,7 @@ class DQDistillate(Stream):
         if end is None:
             latest = self.latest()
             # adding 1 to end time because end is exclusive in windows()
-            end = latest[0].time +1 if latest else None
+            end = latest[0].time + 1 if latest else None
 
         start, end = to_nanoseconds(start), to_nanoseconds(end)
         # There's no event if there's no data
@@ -82,6 +90,7 @@ class DQDistillate(Stream):
     def __repr__(self):
         return f"DQDistillate collection={self.collection}, name={self.name}, type={self.type}"
 
+
 class DQStream(Stream):
     """
     Subsets Stream object. Contains a regular BTrDB stream along with its distillate Streams
@@ -90,11 +99,12 @@ class DQStream(Stream):
     ----------
     stream: btrdb.stream.Stream
     """
+
     def __init__(self, stream):
         # gives all same attrs/methods as Stream
         super().__init__(stream._btrdb, stream.uuid)
         self._distillates = self._get_distillates()
-		
+
     def _get_distillates(self):
         """
         Finds distillate Streams for each of the underlying source Streams
@@ -107,7 +117,9 @@ class DQStream(Stream):
         # NOTE: This involves looking up distillate streams by their source_uuid annotation, so we
         # need to make sure that all distillers give output streams this annotation
         distillates = []
-        for stream in self._btrdb.streams_in_collection(annotations={"source_uuid": str(self.uuid)}):
+        for stream in self._btrdb.streams_in_collection(
+            annotations={"source_uuid": str(self.uuid)}
+        ):
             try:
                 distillates.append(DQDistillate(stream._btrdb, stream.uuid))
             # we only want to raise this error if we aren't sure which distiller the stream is
@@ -118,16 +130,18 @@ class DQStream(Stream):
                 else:
                     continue
         if len(distillates) < 1:
-            warnings.warn(f"Could not find any data quality distillates for stream {str(self.uuid)}")
+            warnings.warn(
+                f"Could not find any data quality distillates for stream {str(self.uuid)}"
+            )
         return distillates
-		
+
     @property
     def distillates(self):
         """
         Returns list of distillate Streams
         """
         return self._distillates
-        
+
     def list_distillates(self):
         """
         Outputs dict that shows which distillates the DQStream has available
@@ -144,8 +158,8 @@ class DQStream(Stream):
             "name": self.name,
         }
         distillers = {
-            distiller: True if self[distiller]
-            else False for distiller in KNOWN_DISTILLER_TYPES
+            distiller: True if self[distiller] else False
+            for distiller in KNOWN_DISTILLER_TYPES
         }
         # combine basic info with distiller info
         return {**info, **distillers}
@@ -163,7 +177,7 @@ class DQStream(Stream):
         depth: (optional) int
             The precision of the window duration as a power of 2 in nanoseconds.
             e.g 30 would make the window duration accurate to roughly 1 second
-        
+
         Returns
         -------
         bool
@@ -192,7 +206,7 @@ class DQStream(Stream):
         depth: (optional) int
             The precision of the window duration as a power of 2 in nanoseconds.
             e.g 30 would make the window duration accurate to roughly 1 second
-        
+
         Returns
         -------
         bool
@@ -204,7 +218,7 @@ class DQStream(Stream):
         except KeyError:
             return None
         return distillate.contains_issue(start=start, end=end, depth=depth)
-    
+
     def __getitem__(self, item):
         for distillate in self._distillates:
             if distillate.type == item:
@@ -213,7 +227,8 @@ class DQStream(Stream):
 
     def __repr__(self):
         return f"DQStream collection={self.collection}, name={self.name}"
-		
+
+
 class DQStreamSet(StreamSet):
     """
     Subsets a StreamSet object. Contains a list of Streams along with each of their
@@ -224,7 +239,8 @@ class DQStreamSet(StreamSet):
     streams: list
         list[btrdb.stream.Stream]
     """
-    def __init__(self, streams):		
+
+    def __init__(self, streams):
         dq_streams = []
         for stream in streams:
             if not isinstance(stream, DQStream):
@@ -259,12 +275,21 @@ class DQStreamSet(StreamSet):
         KNOWN_TAGS = ["name", "unit", "ingress", "distiller"]
         contains_annotations = False
 
-        table = [["Collection", "Name", "Unit", "UUID", "Version", "Available Data Quality Info"]]
+        table = [
+            [
+                "Collection",
+                "Name",
+                "Unit",
+                "UUID",
+                "Version",
+                "Available Data Quality Info",
+            ]
+        ]
 
         # add args as table columns if user provides them
         if additional_cols:
             if not all(a in KNOWN_TAGS for a in additional_cols):
-                contains_annotations=True
+                contains_annotations = True
             table[0].extend(additional_cols)
 
         # query for metadata for all streams upfront
@@ -273,7 +298,10 @@ class DQStreamSet(StreamSet):
         uu_str = ",".join(f"'{uu}'" for uu in uuids)
         if not contains_annotations:
             query = f"SELECT uuid, name, unit, distiller, ingress FROM streams WHERE uuid IN ({uu_str})"
-            meta = {res["uuid"]: {tag: res.get(tag) for tag in KNOWN_TAGS} for res in self._conn.query(query)}
+            meta = {
+                res["uuid"]: {tag: res.get(tag) for tag in KNOWN_TAGS}
+                for res in self._conn.query(query)
+            }
         else:
             query = f"""
                      SELECT uuid, annotations, name, unit, distiller, ingress
@@ -281,9 +309,12 @@ class DQStreamSet(StreamSet):
                      WHERE uuid IN ({uu_str})
                  """
             meta = {
-             res["uuid"]: {**res["annotations"], **{tag: res.get(tag) for tag in KNOWN_TAGS}}
-             for res in self._conn.query(query)
-         }
+                res["uuid"]: {
+                    **res["annotations"],
+                    **{tag: res.get(tag) for tag in KNOWN_TAGS},
+                }
+                for res in self._conn.query(query)
+            }
 
         # iterate through streams, lookup metadata by uuid
         for stream in self._streams:
@@ -319,10 +350,7 @@ class DQStreamSet(StreamSet):
             as well as bool values for each distiller that denote which distillates
             are available to the DQStream
         """
-        return [
-            stream.list_distillates()
-            for stream in self._streams
-        ]
+        return [stream.list_distillates() for stream in self._streams]
 
     def contains_any_issue(self, start=None, end=None, depth=30):
         """
@@ -337,7 +365,7 @@ class DQStreamSet(StreamSet):
         depth: (optional) int
             The precision of the window duration as a power of 2 in nanoseconds.
             e.g 30 would make the window duration accurate to roughly 1 second
-        
+
         Returns
         -------
         dict[str, bool]
@@ -345,7 +373,9 @@ class DQStreamSet(StreamSet):
             contain any event
         """
         return {
-            str(stream.uuid): stream.contains_any_issue(start=start, end=end, depth=depth)
+            str(stream.uuid): stream.contains_any_issue(
+                start=start, end=end, depth=depth
+            )
             for stream in self._streams
         }
 
@@ -364,7 +394,7 @@ class DQStreamSet(StreamSet):
         depth: (optional) int
             The precision of the window duration as a power of 2 in nanoseconds.
             e.g 30 would make the window duration accurate to roughly 1 second
-        
+
         Returns
         -------
         dict[str, bool]
@@ -372,10 +402,12 @@ class DQStreamSet(StreamSet):
             a certain event
         """
         return {
-            str(stream.uuid): stream.contains_issue(distil_type, start=start, end=end, depth=depth)
+            str(stream.uuid): stream.contains_issue(
+                distil_type, start=start, end=end, depth=depth
+            )
             for stream in self._streams
         }
-    
+
     def __getitem__(self, index):
         """
         Returns the DQStream contained at a given index within the set

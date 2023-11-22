@@ -17,4 +17,3 @@ To upgrade using pip:
 .. code-block:: bash
 
     $ pip install -U btrdbextras
-
