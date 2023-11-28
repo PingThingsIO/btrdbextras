@@ -4,6 +4,8 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 import opendssdirect as dss
 from btrdb import BTrDB
+from btrdb.stream import StreamSet
+from pandas import DataFrame
 from tqdm.auto import tqdm
 
 PHASE_LETTERS = ["A", "B", "C"]
@@ -23,7 +25,7 @@ def v2dict(bus_names: List[str]) -> Dict[str, float]:
     Dict[str, float]
         V : dictionary of real values. The keys are the stream collection/name for the data.
         The collection / stream name encodes the bus, phase, and quantity
-        which are formatted by the method get_voltage_stream_colname.
+        which are formatted by the method get_voltage_stream_column_name.
     """
     # Instantiate the dict of results
     V = {}
@@ -50,17 +52,14 @@ def v2dict(bus_names: List[str]) -> Dict[str, float]:
 
             voltage = busvolt[pidx * 2] + 1j * busvolt[pidx * 2 + 1]
 
-            # Save the magnitude data
-            col, name = get_voltage_stream_colname(
-                bus, PHASE_LETTERS[phases[pidx] - 1], True
-            )
-            V[col + "/" + name] = np.abs(voltage)
-
-            # Save the angle data
-            col, name = get_voltage_stream_colname(
-                bus, PHASE_LETTERS[phases[pidx] - 1], False
-            )
-            V[col + "/" + name] = np.angle(voltage, deg=True)
+            # Save the magnitude/angle data
+            for is_mag in (True, False):
+                col, name = get_voltage_stream_column_name(
+                    bus, PHASE_LETTERS[phases[pidx] - 1], is_mag
+                )
+                V[col + "/" + name] = (np.abs(voltage)
+                                       if is_mag else
+                                       np.angle(voltage, deg=True))
 
     return V
 
@@ -166,7 +165,7 @@ def simulate_network(
         connector, end, phase, and quantity which is formatted by the method
         get_lineflow_stream_colname.
     """
-    [n, T] = np.shape(loads)
+    [n, T] = loads.shape
 
     # Get the buses and connectors
     bus_names = get_buses()
@@ -176,33 +175,39 @@ def simulate_network(
     V = {}
     I = {}
 
-    # Run the first simulation to get the keys for the output dictionary
-    # Set the new load values
-    set_loads(loads[:, 0], load_names)
-    # Solve the power flow
-    dss.Solution.Solve()
-    # Get the data
-    vdata = v2dict(bus_names)
-    idata = i2dict(con_names)
-    # Save the voltage data
-    for key, val in vdata.items():
-        V[key] = np.nan * np.ones(T)
-        V[key][0] = val
-    # Save the current data
-    for key, val in idata.items():
-        I[key] = np.nan * np.ones(T)
-        I[key][0] = val
+    # if is_initial_run:
+    # # Run the first simulation to get the keys for the output dictionary
+    # # Set the new load values
+    # set_loads(loads[:, 0], load_names)
+    # # Solve the power flow
+    # dss.Solution.Solve()
+    # # Get the data
+    # vdata = v2dict(bus_names)
+    # idata = i2dict(con_names)
+    # # Save the voltage data
+    # for key, val in vdata.items():
+    #     V[key] = np.nan * np.ones(T)
+    #     V[key][0] = val
+    # # Save the current data
+    # for key, val in idata.items():
+    #     I[key] = np.nan * np.ones(T)
+    #     I[key][0] = val
 
     # Iterate through rest of the times
-    for t in tqdm(range(1, T), desc="Running simulation", leave=False):
+    prog_bar = tqdm(range(0, T), desc="Running simulation", leave=False)
+    for t in prog_bar:
         set_loads(loads[:, t], load_names)
-        dss.Solution.Solve()
+        dss.Solution.Solve() # TODO: explore incremental solution in opendss
         vdata = v2dict(bus_names)
         idata = i2dict(con_names)
 
         for key, val in vdata.items():
+            if t == 0:
+                V[key] = np.nan * np.ones(T)
             V[key][t] = val
         for key, val in idata.items():
+            if t == 0:
+                I[key] = np.nan * np.ones(T)
             I[key][t] = val
 
     return V, I
@@ -405,7 +410,7 @@ def get_lineflow_stream_colname(line_name, line_end, phase, ismag):
     return collection, name
 
 
-def get_voltage_stream_colname(bus_name, phase, ismag):
+def get_voltage_stream_column_name(bus_name, phase, ismag):
     collection = bus_name
     if ismag:
         lastltr = "M"
@@ -421,7 +426,7 @@ def get_voltage_stream_info(bus_name, phase, ismag, basekV):
         unit = "volts"
     else:
         unit = "degrees"
-    collection, name = get_voltage_stream_colname(bus_name, phase, ismag)
+    collection, name = get_voltage_stream_column_name(bus_name, phase, ismag)
     tags = {"name": name, "unit": unit}
     annotations = {"phase": phase, "basekV": str(basekV)}
 
@@ -448,15 +453,15 @@ def add_all_data(times, data_dict, streams_dict, base_col):
         base collection prefix under which all streams can be found.
     """
     # Create progress bar
-    nstreams = len(data_dict.keys())
+    nstreams = len(data_dict)
     pbar = tqdm(total=nstreams, desc="Pushing data to streams", leave=False)
 
-    for key in data_dict:
-        stream_info = base_col + "/" + key
+    for key, value in data_dict.items():
+        stream_info = f"{base_col}/{key}"
         if stream_info in streams_dict:
-            add_to_stream(streams_dict[stream_info], times, data_dict[key])
+            add_to_stream(streams_dict[stream_info], times, value)
         else:
-            print("WARNING", stream_info, "not found")
+            print(f"WARNING: {stream_info} not found")
         pbar.update(1)
     pbar.close()
 
@@ -466,20 +471,23 @@ def add_to_stream(stream, times, values):
     Given times and values, put them in the required tuple format and
     add them to the stream.
     """
-    payload = []
-
     if len(times) != len(values):
         print("WARNING: times & values not same size")
-    for i in range(len(times)):
-        payload.append((times[i], values[i]))
 
+    payload = list(zip(times, values))
     stream.insert(payload, merge="replace")
+
+
+def ingest_streamset(streamset:StreamSet, data: DataFrame, period_ns: int):
+    while True:
+        for row in data.iterrows():
+            streamset.insert(row.to_dict())
+    pass
 
 
 ###############################################################################
 # Convenient wrappers to get model information
 ###############################################################################
-
 
 def get_buses():
     """A convenient wrapper to retrieve all buses in the system."""
@@ -517,7 +525,7 @@ def get_conn_ends(con_names):
     return con_ends
 
 
-def get_loads():
+def get_loads() -> Tuple[np.ndarray, List[str]]:
     """Get all the loads in the network"""
     load_names = dss.Loads.AllNames()
     nloads = len(load_names)

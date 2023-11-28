@@ -1,1 +1,4 @@
 OpenDSSDirect.py[extras]
+
+numpy>=1.24.3
+tqdm>=4.66.1
