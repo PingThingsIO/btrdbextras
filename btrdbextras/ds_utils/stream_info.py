@@ -1,5 +1,14 @@
+# btrdbextras.ds_utils.stream_info
+# Module for general utility functions for PingThings DataSci Team.
+#
+# Author:   PingThings
+# Created:  Fri Dec 1 17:48:23 2023 -0800
+#
+# For license information, see LICENSE.txt
+# ID: stream_info.py [] jeff.lin@pingthings.io
+
 """
-Module for general utility functions for PingThings DataSci Team.
+Module for general utility functions for checking stream information by PingThings DataSci Team.
 """
 ##########################################################################
 # Imports
