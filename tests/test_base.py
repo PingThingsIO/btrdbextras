@@ -16,24 +16,25 @@ Testing package for the btrdb database library.
 ##########################################################################
 
 import re
-import pytest
-from btrdbextras import __version__, Connection
 
+import pytest
+
+from btrdbextras import Connection, __version__
 
 ##########################################################################
 ## Initialization Tests
 ##########################################################################
 
-class TestPackage(object):
 
+class TestPackage(object):
     def test_version(self):
         """
         Assert that the test version smells valid.
         """
         assert bool(re.match(r"^v\d+\.\d+\.\d+$", __version__))
 
-class TestConnection(object):
 
+class TestConnection(object):
     def test_properties(self):
         """
         Connection contains apikey and endpoint

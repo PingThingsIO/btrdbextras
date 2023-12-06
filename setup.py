@@ -16,11 +16,10 @@ Setup script for installing btrdb bindings.
 ## Imports
 ##########################################################################
 
-import os
 import codecs
+import os
 
-from setuptools import setup
-from setuptools import find_packages
+from setuptools import find_packages, setup
 
 from btrdbextras import __version__
 
@@ -29,59 +28,63 @@ from btrdbextras import __version__
 ##########################################################################
 
 ## Basic information
-NAME         = "btrdbextras"
-DESCRIPTION  = "Enhancements additional features to interact with the Berkeley Tree Database"
-AUTHOR       = "Allen Leis"
-EMAIL        = "allen@pingthings.io"
-MAINTAINER   = "Allen Leis"
-LICENSE      = "BSD-3-Clause"
-REPOSITORY   = "https://github.com/PingThingsIO/btrdbextras"
-PACKAGE      = "btrdb"
-URL          = "https://btrdbextras.readthedocs.io/en/latest/"
-DOCS_URL     = "https://btrdbextras.readthedocs.io/en/latest/"
+NAME = "btrdbextras"
+DESCRIPTION = (
+    "Enhancements additional features to interact with the Berkeley Tree Database"
+)
+AUTHOR = "Allen Leis"
+EMAIL = "allen@pingthings.io"
+MAINTAINER = "Allen Leis"
+LICENSE = "BSD-3-Clause"
+REPOSITORY = "https://github.com/PingThingsIO/btrdbextras"
+PACKAGE = "btrdb"
+URL = "https://btrdbextras.readthedocs.io/en/latest/"
+DOCS_URL = "https://btrdbextras.readthedocs.io/en/latest/"
 
 ## Define the keywords
-KEYWORDS     = ('btrdb', 'timeseries', 'database')
+KEYWORDS = ("btrdb", "timeseries", "database")
 
 ## Define the classifiers
 ## See https://pypi.python.org/pypi?%3Aaction=list_classifiers
-CLASSIFIERS  = (
-    'Development Status :: 5 - Production/Stable',
-    'Intended Audience :: Developers',
-    'Intended Audience :: Information Technology',
-    'Intended Audience :: Science/Research',
-    'License :: OSI Approved :: BSD License',
-    'Natural Language :: English',
-    'Operating System :: OS Independent',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: 3.7',
-    'Programming Language :: Python :: 3.8',
-    'Topic :: Database',
-    'Topic :: Software Development :: Libraries :: Python Modules',
+CLASSIFIERS = (
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 )
 
 ## Important Paths
-PROJECT      = os.path.abspath(os.path.dirname(__file__))
+PROJECT = os.path.abspath(os.path.dirname(__file__))
 REQUIRE_PATH = "requirements.txt"
 VERSION_PATH = os.path.join(PACKAGE, "version.py")
 PKG_DESCRIBE = "DESCRIPTION.md"
 
 ## Directories to ignore in find_packages
-EXCLUDES     = (
-    "tests", "docs",
+EXCLUDES = (
+    "tests",
+    "docs",
 )
 
 ##########################################################################
 ## Helper Functions
 ##########################################################################
 
+
 def read(*parts):
     """
     Assume UTF-8 encoding and return the contents of the file located at the
     absolute path from the REPOSITORY joined with *parts.
     """
-    with codecs.open(os.path.join(PROJECT, *parts), 'rb', 'utf-8') as f:
+    with codecs.open(os.path.join(PROJECT, *parts), "rb", "utf-8") as f:
         return f.read()
 
 
@@ -92,7 +95,7 @@ def get_requires(path=REQUIRE_PATH):
     """
     for line in read(path).splitlines():
         line = line.strip()
-        if line and not line.startswith('#'):
+        if line and not line.startswith("#"):
             yield line
 
 
@@ -144,8 +147,8 @@ config = {
     },
     "install_requires": list(get_requires()),
     "python_requires": ">=3.6, <4",
-    "setup_requires":["pytest-runner"],
-    "tests_require":["pytest"],
+    "setup_requires": ["pytest-runner"],
+    "tests_require": ["pytest"],
 }
 
 
@@ -153,5 +156,5 @@ config = {
 ## Run setup script
 ##########################################################################
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     setup(**config)

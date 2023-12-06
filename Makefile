@@ -12,7 +12,7 @@ SPHINXBUILDDIR  = docs/build
 SPHINXSOURCEDIR = docs/source
 
 # Export targets not associated with files
-.PHONY: test grpc
+.PHONY: test coverage pip clean publish uml build deploy install
 
 # Clean build files
 clean:
@@ -31,7 +31,12 @@ clean:
 	-rm -rf docs/build
 	-rm -rf platform-builds meta.yaml
 
-# Generate new grpc code
+
+# Publish to gh-pages
+publish:
+	git subtree push --prefix=deploy origin gh-pages
+
+# Autogenerate GRPC/PB files
 grpc:
 	@echo Generating files:
 	python -m grpc_tools.protoc -I btrdbextras/eventproc/protobuff --python_out=btrdbextras/eventproc/protobuff --grpc_python_out=btrdbextras/eventproc/protobuff btrdbextras/eventproc/protobuff/api.proto
@@ -54,9 +59,11 @@ install:
 
 # Deploy to PyPI
 deploy:
-	# python setup.py register
+	python setup.py register
 	twine upload dist/* --verbose
 
 # Build html version of docs
 html:
 	$(SPHINXBUILD) -b html $(SPHINXOPTS) $(SPHINXSOURCEDIR) $(SPHINXBUILDDIR)
+	@echo
+	@echo "Build finished. The HTML pages are in $(SPHINXBUILDDIR)/html."
