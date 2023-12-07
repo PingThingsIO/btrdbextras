@@ -383,37 +383,43 @@ def search_timestamps_at_agg_value(
         initial_pw = pointwidth(
             initial_pw
         )  # convert initial_pw integer to pointwidth object
-    stack = [(start, end, initial_pw)]
-    while stack:
-        wstart, wend, pw = stack.pop()
-        windows = stream.arrow_aligned_windows(
-            wstart, wend, int(pw), version
-        ).to_pylist()
-        for window in windows:
-            wstart = window["time"].value
-            wend = wstart + pw.nanoseconds
-            if not return_rawpoint_timestamps and all(
-                [window[_agg] == value for _agg in all_measure_aggs]
-            ):
-                # only returns the window if the window's mean is close to value and stddev are smaller than 2x tolerance
+    windows = stream.arrow_aligned_windows(
+        start, end, int(initial_pw), version
+    ).to_pylist()
+    for window in windows:
+        wstart = window["time"].value
+        wend = wstart + initial_pw.nanoseconds
+        if not return_rawpoint_timestamps and all(
+            window[_agg] == value for _agg in all_measure_aggs
+        ):
+            # only returns the window if the window's mean is close to value and stddev are smaller than 2x tolerance
+            yield (wstart, wend)
+        elif (value - tol) <= window[agg] <= (value + tol):
+            # If we are at a window length of a max_depth, use values
+            if initial_pw <= final_pw and not return_rawpoint_timestamps:
+                points = []
                 yield (wstart, wend)
-            elif (value - tol) <= window[agg] <= (value + tol):
-                # If we are at a window length of a max_depth, use values
-                if pw <= final_pw and not return_rawpoint_timestamps:
-                    points = []
-                    yield (wstart, wend)
-                elif return_rawpoint_timestamps and pw <= final_pw:
-                    points = stream.arrow_values(wstart, wend, version).to_pylist()
-                else:
-                    stack.append((wstart, wend, pw - 2))
-                    continue
+            elif return_rawpoint_timestamps and initial_pw <= final_pw:
+                points = stream.arrow_values(wstart, wend, version).to_pylist()
+            else:
+                points = search_timestamps_at_agg_value(
+                    stream,
+                    value,
+                    agg,
+                    wstart,
+                    wend,
+                    initial_pw - 2,
+                    final_pw,
+                    return_rawpoint_timestamps=return_rawpoint_timestamps,
+                    version=version,
+                )
 
-                for point in points:
-                    if isinstance(point, dict):
-                        if value - tol <= point["value"] <= value + tol:
-                            yield (point["time"].value,)
-                    else:
-                        yield point
+            for point in points:
+                if isinstance(point, dict):
+                    if value - tol <= point["value"] <= value + tol:
+                        yield (point["time"].value,)
+                else:
+                    yield point
 
 
 def find_sags_dfs(
