@@ -15,6 +15,13 @@ from btrdb.stream import Stream
 from btrdb.utils.general import pointwidth
 from btrdb.utils.timez import ns_to_datetime
 
+__all__ = [
+    "search_timestamps_above_threshold",
+    "search_timestamps_below_threshold",
+    "search_timestamps_outside_bounds",
+    "search_timestamps_at_agg_value",
+]
+
 
 def _calculate_bounds_severity(
     value: float, lower_bound: float, upper_bound: float
@@ -422,152 +429,193 @@ def search_timestamps_at_agg_value(
                     yield point
 
 
-def find_sags_dfs(
-    stream, tau, start=btrdb.MINIMUM_TIME, end=btrdb.MAXIMUM_TIME, pw=48, version=0
+# def search_change_timestamps(
+#     stream,
+#     start,
+#     end,
+#     delta,
+#     initial_pw=49,
+#     final_pw=36,
+#     version=0,
+#     ):
+#     """
+#     Finding all the sags(values below threshold and above bad_value_threshold) using a depth first search tree traversal
+#     algorithm in the specified stream. The search of the sags will end when the pointwidth ends at final_pw.
+#
+#     Parameters
+#     ----------
+#     stream : btrdb.Stream
+#         Stream object.
+#     start : int or float
+#         Time to start finding sags.
+#     end : int or float
+#         Time to stop finding sags.
+#     delta : int or float
+#          Find change values above this threshold.
+#     bad_value_threshold : int or float, default=0
+#          Find values below threshold and above bad_value_threshold.
+#     initial_pw : int, default=49
+#         Initial query pointwidth of tree traversal, Default is 49 (approximately 7 days).
+#     final_pw: int, default: 36
+#         Final pointwidth depth to use tree traversal with StatPoints and to search with RawPoints. Default is 36
+#         (approximately 1.15 minutes).
+#     version : int, default=0
+#         Stream version.
+#
+#     Yield
+#     ----------
+#     point : tuple
+#       (window_start_time, window_end_time, min_value).
+#     """
+#     # Ensure pw is a pointwidth object
+#     pw = pointwidth(initial_pw)
+#     windows = stream.arrow_aligned_windows(
+#         start, end, int(pw), version
+#         ).to_pylist()
+#
+#     for window in windows:
+#         wstart = window['time']
+#         wend = wstart + pw.nanoseconds
+#
+#         min_value, mean_value, max_value = (window[agg] for agg in ['min', 'mean','max'])
+#
+#         # skip window if the change between max or min to mean value of is below specified delta
+#         if abs(max_value - mean_value) < delta or abs(mean_value - min_value) < delta
+#             continue
+#         #TODO: use z-score of min/max
+#
+#         # if max and min of the a time window are both below threshold and above bad_value_threshold
+#         # while mean is above threshold, this means all the values in the time window is within the
+#         # boundary of acceptable sags threshold
+#         elif (
+#             bad_value_threshold < max_value < threshold
+#             and bad_value_threshold < min_value < threshold
+#             and mean_value > threshold
+#         ):
+#             yield wstart, wend, min_value
+#
+#         # if the min of a time window is below threshold and mean is above threshold,
+#         # traverse down the tree to search for sags
+#         elif min_value <= threshold and mean_value > threshold:
+#
+#             # yield  the start, end time and min value of the time window at the final pw
+#             if initial_pw == final_pw:
+#                 if min_value > bad_value_threshold:
+#                     yield wstart, wend, min_value
+#             else:
+#                 # traverse down the tree 6 levels at time (due to tree structure) if (initial_pw - final_pw) >= 6
+#                 if (initial_pw - final_pw) >= 6:
+#                     traverse_step = 6
+#                 else:
+#                     traverse_step = 1
+#                 points = search_sags_timestamps(
+#                     stream,
+#                     wstart,
+#                     wend,
+#                     threshold,
+#                     bad_value_threshold,
+#                     initial_pw=initial_pw - traverse_step,
+#                     final_pw=final_pw,
+#                     version=version,
+#                     )
+#
+#                 for point in points:
+#                     yield point
+
+
+def search_sags_timestamps(
+    stream,
+    start,
+    end,
+    threshold,
+    bad_value_threshold=0,
+    initial_pw=44,
+    final_pw=36,
+    version=0,
 ):
     """
-    Finding all the sags(values below tau) using a depth first search algorithm in the specified stream.
+    Finding all the sags(values below threshold and above bad_value_threshold) using a depth first
+    search tree traversal algorithm in the specified stream. The search of the sags will end when
+    the pointwidth ends at final_pw.
 
     Parameters
     ----------
     stream : btrdb.Stream
         Stream object.
-    tau : int or float
-        Sag threshold. Points with values below this threshold will be marked as a sag.
-    start : int or float, default=btrdb.MINIMUM_TIME
+    start : int or float
         Time to start finding sags.
-    end : int or float, default=btrdb.MAXIMUM_TIME
+    end : int or float
         Time to stop finding sags.
-    pw : int, default=48
-        Pointwidth.
+    threshold : int or float
+         Find values below threshold and above bad_value_threshold.
+    bad_value_threshold : int or float, default=0
+         Find values below threshold and above bad_value_threshold.
+    initial_pw : int, default=44
+        Initial query pointwidth of tree traversal, Default is 44 (approximately 4.89 hours).
+    final_pw: int, default: 36
+        Final pointwidth depth to use tree traversal with StatPoints and to search with RawPoints.
+        Default is 36 (approximately 1.15 minutes).
     version : int, default=0
         Stream version.
 
     Yield
     ----------
-    point : int
-      Timestamp of the detected sag(points with values below the sag threshold).
+    point : tuple
+        Timestamps of the detected sag (points with values below the sag threshold) with start and
+        end timestamps.
     """
     # Ensure pw is a pointwidth object
-    pw = pointwidth(pw)
+    pw = pointwidth(initial_pw)
 
     # Begin by collecting all stat points at the specified pointwidth
     # Note that zip creates a list of windows and versions and we ignore the versions
     statpoints, _ = zip(*stream.aligned_windows(start, end, pw, version))
     # Traversing from left to right from the windows
     for sp in statpoints:
-        # Check to see if the value is in the window
-        if sp.min <= tau:
-            # Get the time range of the current window
-            wstart = sp.time
-            wend = sp.time + pw.nanoseconds
+        wstart = sp.time
+        wend = sp.time + pw.nanoseconds
 
-            if pw <= 30:
-                # If we are at a window length of a second, use values
-                points, _ = zip(*stream.values(wstart, wend, version))
+        min_value = sp.min
+        max_value = sp.max
+        mean_value = sp.mean
+
+        # skip timewindow if the max or the mean value of a time window is below bad_value_threshold
+        # this is to avoid mixing up true voltage sags caused by event with sags caused by DQ issue
+        if max_value < bad_value_threshold or mean_value < bad_value_threshold:
+            continue
+
+        # if max and min of the a time window are both below threshold and above bad_value_threshold
+        # while mean is above threshold, this means all the values in the time window is within the
+        # boundary of acceptable sags threshold
+        elif (
+            bad_value_threshold < max_value < threshold
+            and bad_value_threshold < min_value < threshold
+            and mean_value > threshold
+        ):
+            yield wstart, wend, min_value
+
+        # if the min of a time window is below threshold and mean is above threshold,
+        # traverse down the tree to search for sags
+        elif min_value <= threshold and mean_value > threshold:
+            # yield the start, end time and min value of the time window at the final pw
+            if initial_pw == final_pw:
+                if min_value > bad_value_threshold:
+                    yield wstart, wend, min_value
             else:
-                # Otherwise, traverse the stat point children of this node
-                points = find_sags_dfs(stream, tau, wstart, wend, pw - 1, version)
+                # traverse down the tree 6 levels at time
+                traverse_step = 6 if (initial_pw - final_pw) >= 6 else 1
 
-            # Yield all points to the calling function
-            for point in points:
-                if point.value <= tau:
+                points = search_sags_timestamps(
+                    stream,
+                    wstart,
+                    wend,
+                    threshold,
+                    bad_value_threshold,
+                    initial_pw=initial_pw - traverse_step,
+                    final_pw=final_pw,
+                    version=version,
+                )
+
+                # Yield all points to the calling function
+                for point in points:
                     yield point
-
-
-def sag_survey(sags, between_sags_in_sec=1, limit=100, verbose=False):
-    """
-    Consolidate individual sag points into distinct sags based on the time between them.
-
-    Parameters
-    ----------
-    sags : Generator
-        Timestamps of individual sag points (points with values below the sag threshold).
-    between_sags_in_sec : int or float, default=1
-        Time gap threshold. Adjacent sags less than this value apart are combined into a single sag.
-    limit : int, default=100
-        Limit on number of sags to return.
-    verbose : bool, default=False
-        Progress of sag survey.
-
-    Return
-    ----------
-    starts : list of int
-        Starting timestamps of the unique sags found.
-    durations : list of int
-        Time duration of each sag in nanoseconds.
-    magnitudes : list of int
-        Minimum value found among the combined sags.
-    sags_found : list of int
-      Number of unique sags found.
-
-    Examples
-    ----------
-    >>> vsags = find_sags_dfs(voltage_stream, voltage_thresh, start=start, end=end)
-    >>> vsags_start_time, vsags_duration, vsags_magnitude, vsags_found = sag_survey(vsags, between_sags_in_sec=1)
-    """
-    # Initialize sag information
-    starts = []
-    durations = []
-    magnitudes = []
-    sags_found = []
-
-    # Get the first sag
-    sag = _safe_next(sags)
-    if sag == None:
-        print("No voltage sags found.")
-    else:
-        if verbose:
-            print("Voltage sag found!")
-        start, mag = sag
-        dur = 0
-
-    count = 0
-    sags_count = 1
-    while sag:
-        sag = _safe_next(sags)
-        # If we are on the last sag
-        if (sag == None) or (count > limit):
-            starts.append(start)
-            durations.append(dur)
-            magnitudes.append(mag)
-            sags_found.append(sags_count)
-            sag = None
-        else:
-            sag_time, sag_value = sag
-            # Check if this is a different sag
-            # More than 1s or more after last sag point
-            if sag_time - (start + dur) > between_sags_in_sec * 1e9:
-                if verbose:
-                    print("Voltage sag found!", count)
-                # Save last sag
-                starts.append(start)
-                durations.append(dur)
-                magnitudes.append(mag)
-                sags_found.append(sags_count)
-                # Increment sag count
-                count += 1
-                # Initialize next sag
-                start = sag_time
-                mag = sag_value
-                dur = 0
-                sags_count = 0
-            # Otherwise update properties of this sag
-            else:
-                dur = sag_time - start
-                mag = min(mag, sag_value)
-            sags_count += 1
-
-    return starts, durations, magnitudes, sags_found
-
-
-# A convenience for iterating through a generator
-def _safe_next(iterable):
-    """
-    Helper function for sag_survey() to ensure it does not run into StopIteration error when all values have been evaluated.
-    """
-    try:
-        first = next(iterable)
-    except StopIteration:
-        return None
-    return first
