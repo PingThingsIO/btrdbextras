@@ -220,13 +220,12 @@ def search_timestamps_below_threshold(
 
 def search_timestamps_outside_bounds(
     stream: Stream,
-    bounds: Tuple[float, float],
     start: int,
     end: int,
+    bounds: Tuple[float, float],
     initial_pw: int = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
-    return_severity=True,
     version: int = 0,
 ) -> tuple:
     """
@@ -237,12 +236,12 @@ def search_timestamps_outside_bounds(
     ----------
     stream: Stream
         BTrDB Stream to search.
-    bounds: tuple(float, float), length: 2
-        Find events with values outside the specified (lower, upper) bounds threshold.
     start: int
         The start time in nanoseconds for the range to search from.
     end: int
         The end time in nanoseconds for the range to search from.
+    bounds: tuple(float, float), length: 2
+        Find events with values outside the specified (lower, upper) bounds threshold.
     initial_pw: int or pointwidth, default: 49
         Initial query pointwidth of tree traversal, Default is 49 (approximately 7 days).
     final_pw: int, default: 36
@@ -264,9 +263,11 @@ def search_timestamps_outside_bounds(
 
     Example
     -------
-    >>> result = search_timestamps_outside_bounds(stream, threshold, start, end, initial_pw, final_pw, return_rawpoint_timestamps, version)
+    For measurement stream with values (280-290):
+    >>> result = search_timestamps_outside_bounds(stream, start, end, bounds=(280.0, 290.0))
     >>> result_timestamps = [timestamp for timestamp in result]
     >>> print(result_timestamps)
+    []
     """
     assert len(bounds) == 2, "Requires a minimum and maximum for the `bounds`"
     lower_bound, upper_bound = bounds
@@ -288,43 +289,25 @@ def search_timestamps_outside_bounds(
         if not return_rawpoint_timestamps and (
             window["min"] > upper_bound or window["max"] < lower_bound
         ):
-            if return_severity:
-                point_value = (
-                    window["min"] if window["min"] > upper_bound else window["max"]
-                )
-                severity = _calculate_bounds_severity(
-                    point_value, lower_bound, upper_bound
-                )
-                yield wstart, wend, severity
-            else:
-                yield wstart, wend
+            yield wstart, wend
         elif window["min"] < lower_bound or window["max"] > upper_bound:
             # If we are at a window length of a final_pw, use values
             if initial_pw <= final_pw and not return_rawpoint_timestamps:
                 points = []
-                if return_severity:
-                    point_value = (
-                        window["min"] if window["min"] < lower_bound else window["max"]
-                    )
-                    severity = _calculate_bounds_severity(
-                        point_value, lower_bound, upper_bound
-                    )
-                    yield wstart, wend, severity
-                else:
-                    yield wstart, wend
+
+                yield wstart, wend
             elif initial_pw <= final_pw and return_rawpoint_timestamps:
                 points = stream.arrow_values(wstart, wend, version).to_pylist()
             # Otherwise, traverse the stat point children of this node
             else:
                 points = search_timestamps_outside_bounds(
                     stream,
-                    bounds,
                     wstart,
                     wend,
+                    bounds,
                     initial_pw - 2,
                     final_pw,
                     return_rawpoint_timestamps=return_rawpoint_timestamps,
-                    return_severity=return_severity,
                     version=version,
                 )
 
@@ -334,11 +317,177 @@ def search_timestamps_outside_bounds(
                         severity = _calculate_bounds_severity(
                             point["value"], lower_bound, upper_bound
                         )
-                        yield (point["time"], severity) if return_severity else (
-                            point["time"],
-                        )
+                        yield (point["time"],)
                 else:
                     yield point
+
+
+def search_timestamps_within_bounds(
+    stream: Stream,
+    start: int,
+    end: int,
+    bounds: Tuple[float, float],
+    initial_pw: int = 49,
+    final_pw: int = 36,
+    return_rawpoint_timestamps: bool = False,
+    version: int = 0,
+) -> tuple:
+    """
+    Find points in stream between `start` and `end` that are outside specified bounds values (lower
+    and upper bounds) using StatPoints recursively through BTrDB tree.
+
+    Parameters
+    ----------
+    stream: Stream
+        BTrDB Stream to search.
+    start: int
+        The start time in nanoseconds for the range to search from.
+    end: int
+        The end time in nanoseconds for the range to search from.
+    bounds: tuple(float, float), length: 2
+        Find events with values outside the specified (lower, upper) bounds threshold.
+    initial_pw: int or pointwidth, default: 49
+        Initial query pointwidth of tree traversal, Default is 49 (approximately 7 days).
+    final_pw: int, default: 36
+        Final pointwidth depth to use tree traversal with StatPoints and to
+        search with RawPoints. Default is 36 (approximately 1.15 minutes).
+    return_rawpoint_timestamps: bool, default: False
+        Return RawPoint timestamps if `True`, else returns time-range tuple of start and end
+        timestamps of the StatPoint windows that is outside the specified bounds threshold.
+    return_severity : bool, default: True
+        Whether to return the severity level of the event detected. Default is True.
+    version: int, default: 0
+        Version of the stream to search from.
+
+    Yields
+    ------
+    tuple
+        Timestamp (nanoseconds) of start (and end if above threshold for more than specified max
+        depth default is ~1.15 minutes) timestamps of event.
+
+    Example
+    -------
+    For measurement stream with values (280-290):
+
+    >>> result = search_timestamps_outside_bounds(stream, start, end, bounds=(0, 1))
+    >>> result_timestamps = [timestamp for timestamp in result]
+    >>> print(result_timestamps)
+    []
+
+    """
+    # TODO: add more examples cases
+    assert len(bounds) == 2, "Requires a minimum and maximum for the `bounds`"
+    lower_bound, upper_bound = bounds
+    assert isinstance(
+        initial_pw, (int, pointwidth)
+    ), "Please provide `initial_pw` as an integer or pointwidth object"
+    if isinstance(initial_pw, int):
+        initial_pw = pointwidth(
+            initial_pw
+        )  # convert initial_pw integer to pointwidth object
+    windows = stream.arrow_aligned_windows(
+        start, end, int(initial_pw), version
+    ).to_pylist()
+    for window in windows:
+        # Get the time range of the current window
+        wstart = window["time"].value
+        wend = wstart + initial_pw.nanoseconds
+
+        # if the aggregates are with the bounds, return full window
+        if not return_rawpoint_timestamps and (
+            lower_bound <= window["min"] and window["max"] <= upper_bound
+        ):
+            yield wstart, wend
+        elif not (window["max"] < lower_bound or window["min"] > upper_bound):
+            # If we are at a window length of a final_pw, use values
+            if initial_pw <= final_pw and not return_rawpoint_timestamps:
+                points = []
+                yield wstart, wend
+            elif initial_pw <= final_pw and return_rawpoint_timestamps:
+                points = stream.arrow_values(wstart, wend, version).to_pylist()
+            # Otherwise, traverse the stat point children of this node
+            else:
+                points = search_timestamps_within_bounds(
+                    stream,
+                    wstart,
+                    wend,
+                    bounds,
+                    initial_pw - 2,
+                    final_pw,
+                    return_rawpoint_timestamps=return_rawpoint_timestamps,
+                    version=version,
+                )
+
+            for point in points:
+                if isinstance(point, dict):
+                    if lower_bound <= point["value"] <= upper_bound:
+                        yield (point["time"].value,)
+                else:
+                    yield point
+
+
+def search_timestamps_at_value(
+    stream: Stream,
+    start: int,
+    end: int,
+    value: Union[int, float],
+    tol: float = 1e-6,
+    initial_pw: int = 49,
+    final_pw: int = 36,
+    return_rawpoint_timestamps: bool = False,
+    version: int = 0,
+) -> tuple:
+    """
+    Find points in stream between `start` and `end` that are equal specified values (with some
+    tolerance) using StatPoints recursively through BTrDB tree.
+
+    Parameters
+    ----------
+    stream: Stream
+        BTrDB Stream to search.
+    start: int
+        The start time in nanoseconds for the range to search from.
+    end: int
+        The end time in nanoseconds for the range to search from.
+    value : int, float
+        The values to search in the tree.
+    initial_pw: int or pointwidth, default: 49
+        Initial query pointwidth of tree traversal, Default is 49 (approximately 7 days).
+    final_pw: int, default: 36
+        Final pointwidth depth to use tree traversal with StatPoints and to
+        search with RawPoints. Default is 36 (approximately 1.15 minutes).
+    return_rawpoint_timestamps: bool, default: False
+        Return RawPoint timestamps if `True`, else returns time-range tuple of start and end
+        timestamps of the StatPoint windows that is outside the specified bounds threshold.
+    return_severity : bool, default: True
+        Whether to return the severity level of the event detected. Default is True.
+    version: int, default: 0
+        Version of the stream to search from.
+
+    Yields
+    ------
+    tuple
+        Timestamp (nanoseconds) of start (and end if above threshold for more than specified max
+        depth default is ~1.15 minutes) timestamps of event.
+
+    Example
+    -------
+    >>> result = search_timestamps_at_value(stream, start, end, value)
+    >>> result_timestamps = [timestamp for timestamp in result]
+    >>> print(result_timestamps)
+    """
+    # TODO: add more examples cases
+    bounds = (value - tol, value + tol)
+    yield from search_timestamps_within_bounds(
+        stream,
+        start,
+        end,
+        bounds,
+        initial_pw - 2,
+        final_pw,
+        return_rawpoint_timestamps=return_rawpoint_timestamps,
+        version=version,
+    )
 
 
 def search_timestamps_at_agg_value(
@@ -451,7 +600,7 @@ def search_timestamps_at_agg_value(
 #     end : int or float
 #         Time to stop finding sags.
 #     delta : int or float
-#          Find change values above this threshold.
+#          Find absolute percentage change values to mean above this threshold.
 #     bad_value_threshold : int or float, default=0
 #          Find values below threshold and above bad_value_threshold.
 #     initial_pw : int, default=49
@@ -480,18 +629,12 @@ def search_timestamps_at_agg_value(
 #         min_value, mean_value, max_value = (window[agg] for agg in ['min', 'mean','max'])
 #
 #         # skip window if the change between max or min to mean value of is below specified delta
-#         if abs(max_value - mean_value) < delta or abs(mean_value - min_value) < delta
+#         if abs(max_value - mean_value) < delta or abs(mean_value - min_value) < delta:
 #             continue
 #         #TODO: use z-score of min/max
 #
-#         # if max and min of the a time window are both below threshold and above bad_value_threshold
-#         # while mean is above threshold, this means all the values in the time window is within the
-#         # boundary of acceptable sags threshold
-#         elif (
-#             bad_value_threshold < max_value < threshold
-#             and bad_value_threshold < min_value < threshold
-#             and mean_value > threshold
-#         ):
+#         # if max and min of a time window both below delta but above
+#         elif True:
 #             yield wstart, wend, min_value
 #
 #         # if the min of a time window is below threshold and mean is above threshold,
@@ -508,7 +651,7 @@ def search_timestamps_at_agg_value(
 #                     traverse_step = 6
 #                 else:
 #                     traverse_step = 1
-#                 points = search_sags_timestamps(
+#                 points = search_change_timestamps(
 #                     stream,
 #                     wstart,
 #                     wend,
