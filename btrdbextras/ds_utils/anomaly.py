@@ -6,14 +6,12 @@ pyarrow.Table.to_pandas().itertuples() and iterating.
 
 #TODO: traverse the tree in increements of 6?
 """
-
-
+import warnings
 from typing import Tuple, Union
 
-import btrdb
+import pandas as pd
 from btrdb.stream import Stream
 from btrdb.utils.general import pointwidth
-from btrdb.utils.timez import ns_to_datetime
 
 __all__ = [
     "search_timestamps_above_threshold",
@@ -23,7 +21,117 @@ __all__ = [
 ]
 
 
-def _calculate_bounds_severity(
+def combine_consecutive_windows(
+    dataframe,
+    event_merge_threshold_ns: int = 0,
+    agg: str = "max",
+    data_columns: str = "Severity",
+    stream=None,
+):
+    """
+    Combine consecutive windows (end time is the same as the consecutive start time) into a single timerange.
+    Such as [(2021-03-15 18:34:54.518091776,	2021-03-15 18:35:03.108026368),
+    (2021-03-15 18:35:03.108026368,	2021-03-15 18:35:11.697960960)]
+    -> [(2021-03-15 18:34:54.518091776,	2021-03-15 18:35:11.697960960)].
+
+    If a stream object is given, check for the gaps between the events and combine the windows.
+
+    NOTE: DataFrame must have ["StartTime", "EndTime"], error will be thrown if not in the columns.
+
+    Parameters
+    ----------
+    dataframe : DataFrame
+        A Pandas' DataFrame object.
+    event_merge_threshold_ns : int
+        If 2 events are within the specified time range in nanoseconds (end of previous event to start of consecutive),
+        they are combined as a single event.
+    agg : str
+        Aggregation function to apply to the 'Severity'.
+    data_columns : str or list of str
+        Column names to apply aggregation to.
+    stream : Stream, optional
+        Stream to check for gaps between the events and combine the event windows.
+    Returns
+    -------
+    DataFrame
+        A Pandas' DataFrame object
+    """
+
+    def _agg_data_columns(data, mask, starttimes, end_times):
+        """
+        Apply aggregation to the given `data_columns`.
+        """
+        severity = (
+            data[data_columns].where(mask).copy()  # use the starttime as reference
+        )
+        for startidx, endidx in zip(*[starttimes.index, end_times.index]):
+            severity[startidx] = data.loc[startidx:endidx, data_columns].agg(agg)
+        return severity.dropna()
+
+    # DataFrame must have ["StartTime", "EndTime"], error will be thrown if not in columns
+    merge_endtimes = dataframe.EndTime[
+        (dataframe.StartTime.shift(-1) - dataframe.EndTime > event_merge_threshold_ns)
+        | dataframe.StartTime.shift(-1).isna()
+    ]
+    merge_starttimes = dataframe.StartTime[
+        (dataframe.StartTime - dataframe.EndTime.shift(1) > event_merge_threshold_ns)
+        | dataframe.EndTime.shift(1).isna()
+    ]
+    if len(merge_endtimes) != len(merge_starttimes):
+        warnings.warn("Unequal sizes for the merging start and end times.")
+    elif len(merge_endtimes) == 0 or len(merge_starttimes) == 0:
+        # nothing to merge
+        return dataframe
+    severity = _agg_data_columns(
+        dataframe,
+        dataframe.StartTime - dataframe.EndTime.shift(1) > event_merge_threshold_ns,
+        merge_starttimes,
+        merge_endtimes,
+    )
+
+    merged_df = pd.concat(
+        [
+            merge_starttimes.reset_index(drop=True),
+            merge_endtimes.reset_index(drop=True),
+            severity.reset_index(drop=True),
+        ],
+        axis=1,
+    )
+
+    if stream is not None and merged_df.shape[0] > 1:
+        # combine the windows between the events if gaps (if the count == 0)
+        # (done after merging to reduce the number of events)
+        count = pd.concat(
+            [
+                merged_df.EndTime,
+                merged_df.StartTime.shift(-1),
+            ],
+            axis=1,
+        ).apply(
+            lambda x: stream.count(int(x.EndTime), int(x.StartTime), precise=True)
+            if not x.isna().any()
+            else None,
+            axis=1,
+        )
+
+        merged_start = merged_df.StartTime[~count.shift(1).eq(0) | count.isna()]
+        merged_end = merged_df.EndTime[~count.eq(0) | count.isna()]
+        severity = _agg_data_columns(
+            merged_df, ~count.shift(1).eq(0) | count.isna(), merged_start, merged_end
+        )
+
+        merged_df = pd.concat(
+            [
+                merged_start.reset_index(drop=True),
+                merged_end.reset_index(drop=True),
+                severity.reset_index(drop=True),
+            ],
+            axis=1,
+        )
+    return merged_df
+
+
+def calculate_bounds_severity(
     value: float, lower_bound: float, upper_bound: float
 ) -> float:
     """Calculate severity based on how far away from the bounds."""
@@ -39,7 +147,7 @@ def search_timestamps_above_threshold(
     threshold: Union[int, float],
     start: int,
     end: int,
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
@@ -131,7 +239,7 @@ def search_timestamps_below_threshold(
     threshold: Union[int, float],
     start: int,
     end: int,
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
@@ -223,7 +331,7 @@ def search_timestamps_outside_bounds(
     start: int,
     end: int,
     bounds: Tuple[float, float],
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
@@ -314,9 +422,6 @@ def search_timestamps_outside_bounds(
             for point in points:
                 if isinstance(point, dict):
                     if point["value"] < lower_bound or point["value"] > upper_bound:
-                        severity = _calculate_bounds_severity(
-                            point["value"], lower_bound, upper_bound
-                        )
                         yield (point["time"],)
                 else:
                     yield point
@@ -327,7 +432,7 @@ def search_timestamps_within_bounds(
     start: int,
     end: int,
     bounds: Tuple[float, float],
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
@@ -432,7 +537,7 @@ def search_timestamps_at_value(
     end: int,
     value: Union[int, float],
     tol: float = 1e-6,
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
@@ -497,7 +602,7 @@ def search_timestamps_at_agg_value(
     start: int,
     end: int,
     tol=1e-3,
-    initial_pw: int = 49,
+    initial_pw: Union[int, pointwidth] = 49,
     final_pw: int = 36,
     return_rawpoint_timestamps: bool = False,
     version: int = 0,
