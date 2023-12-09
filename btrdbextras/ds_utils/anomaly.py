@@ -17,11 +17,38 @@ from btrdb.stream import Stream
 from btrdb.utils.general import pointwidth
 
 __all__ = [
+    "search_generator_to_dataframe",
     "search_timestamps_above_threshold",
     "search_timestamps_below_threshold",
     "search_timestamps_outside_bounds",
+    "search_timestamps_within_bounds",
     "search_timestamps_at_value",
 ]
+
+
+####################################################################################################
+# Helper functions
+####################################################################################################
+def search_generator_to_dataframe(search_generator):
+    """
+    Parameters
+    ----------
+    search_generator : generator
+        The search_generator object containing the search results.
+
+    Returns
+    -------
+    df : DataFrame
+        The DataFrame containing the search results. The columns of the DataFrame depend on the
+        shape of the search_generator object. If it has only one column, the column name will be
+        "Time". If it has two columns, the column names will be "StartTime" and "EndTime".
+    """
+    df = pd.DataFrame(search_generator)
+    if df.shape[1] == 1:
+        df.columns = ["Time"]
+    elif df.shape[1] == 2:
+        df.columns = ["StartTime", "EndTime"]
+    return df
 
 
 def combine_consecutive_windows(
@@ -145,6 +172,9 @@ def calculate_bounds_severity(
     return severity
 
 
+####################################################################################################
+# Search functions
+####################################################################################################
 def search_timestamps_above_threshold(
     stream: Stream,
     start: int,
