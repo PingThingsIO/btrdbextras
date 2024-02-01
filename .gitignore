@@ -1,7 +1,3 @@
-# Local development
-local-setup.sh
-driver.py
-ignore.py
 
 # OS trash
 .DS_Store
@@ -122,3 +118,13 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# arrow parquet files
+*.parquet
+
+.idea
+.idea/misc.xml
+.idea/vcs.xml
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/inspectionProfiles/Project_Default.xml
+/.idea/
