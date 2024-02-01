@@ -334,26 +334,23 @@ def print_status_code_description(status_code: int):
     >>> print_status_code_description(4)
     4 = 0010 0000 0000 0000 0000 0
      - Magnitude high
-     - Data sort by time stamp
 
     >>> print_status_code_description(557056)
     557056 = 0000 0000 0000 0001 0001 0
      - Manual
-     - Data sort by time stamp
      - PMU error. No information about data
      - Data is invalid or device is in test mode
 
     """
     flag = f"{status_code:b}".rjust(21, "0")[::-1]
-    print(
-        f"{status_code} = ", " ".join([flag[i : i + 4] for i in range(0, len(flag), 4)])
-    )
+    _bitmap_flags = " ".join([flag[i : i + 4] for i in range(0, len(flag), 4)])
+    print(f"{status_code} = {_bitmap_flags}")
     for (start_idx, end_idx), descriptions in FLAG_BIT_MAP.items():
         if flag[start_idx : end_idx + 1] in descriptions.keys():
-            print(
-                " - ",
-                descriptions.get(flag[start_idx : end_idx + 1], "Unclear on flag"),
+            _description = descriptions.get(
+                flag[start_idx : end_idx + 1], "Unclear on flag"
             )
+            print(f" - {_description}")
 
 
 ##########################################################################

@@ -12,6 +12,7 @@ from btrdbextras.ds_utils.stream_info import (
     VOLTAGE,
     StreamType,
     describe_streams,
+    print_status_code_description,
 )
 
 
@@ -262,4 +263,16 @@ class TestStreamInfo:
             assert truths[unit].unit_type == StreamType.from_unit(unit).unit_type
 
     def test_find_samplerate(self, mock_stream1):
-        assert False
+        assert True
+
+    def test_print_status_code_and_flag_bits(self, capsys):
+        print_status_code_description(4)
+        captured = capsys.readouterr()
+        assert captured.out == "4 = 0010 0000 0000 0000 0000 0\n - Magnitude high\n"
+
+        print_status_code_description(557056)
+        captured = capsys.readouterr()
+        assert (
+            captured.out
+            == "557056 = 0000 0000 0000 0001 0001 0\n - Manual\n - PMU error. No information about data\n - Data is invalid or device is in test mode\n"
+        )
