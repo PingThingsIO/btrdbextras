@@ -3,11 +3,16 @@ from unittest.mock import Mock, PropertyMock
 
 import pandas as pd
 import pytest
-from ds_utils.ds_api.stream_info import ANGLE, describe_streams, StreamType, VOLTAGE
-from pandas.testing import assert_frame_equal
-
 from btrdb import BTrDB
 from btrdb.stream import Stream, StreamSet
+from pandas.testing import assert_frame_equal
+
+from btrdbextras.ds_utils.stream_info import (
+    ANGLE,
+    VOLTAGE,
+    StreamType,
+    describe_streams,
+)
 
 
 @pytest.fixture(scope="session")

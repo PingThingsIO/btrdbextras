@@ -9,13 +9,13 @@ from typing import List, Union
 
 import numpy as np
 import pandas as pd
-
 from btrdb.stream import Stream
 from btrdb.utils.timez import ns_delta
 
 __all__ = [
     "describe_streams",
     "find_samplerate",
+    "print_status_code_description",
     "StreamType",
     "ANGLE",
     "CONDUCTANCE",
@@ -25,7 +25,7 @@ __all__ = [
     "POWER",
     "RESISTANCE",
     "VOLTAGE",
-    ]
+]
 
 ##########################################################################
 # Constants
@@ -116,7 +116,78 @@ StreamTypeMap = {
     # "Phasor":                 (TODO, 1), # TODO: fill in missing value from Dominion
     # "PU":                     (TODO, 1), # TODO: fill in missing value from Dominion
     # "QUAL":                   (TODO, 1), # TODO: fill in missing value from Dominion
-    }
+}
+
+FLAG_BIT_MAP = {
+    (0, 1): {
+        "11": "Available for user definition",
+        "10": "Available for user definition",
+    },
+    (0, 3): {
+        "0111": "Digital",
+        "0110": "Reserved",
+        "0101": "df/dt High",
+        "0100": "Frequency high or low",
+        "0011": "Phase angle diff",
+        "0010": "Magnitude high",
+        "0001": "Magnitude low",
+        "0000": "Manual",
+    },
+    (4, 5): {
+        # "00" : "sync locked or unlocked < 10 s (best quality)",
+        "01": "10 s ≤ unlocked time < 100 s",
+        "10": "100 s < unlock time ≤ 1000 s",
+        "11": "unlocked time > 1000 s",
+    },
+    (6, 8): {
+        "111": "Estimated maximum time error > 10 ms or time error unknown ",
+        "110": "Estimated maximum time error < 10 ms ",
+        "101": "Estimated maximum time error < 1 ms",
+        "100": "Estimated maximum time error < 100 μs",
+        "011": "Estimated maximum time error < 10 μs",
+        "010": "Estimated maximum time error < 1 μs ",
+        "001": "Estimated maximum time error < 100 ns",
+        # "000": "Not used (indicates code from previous version of profile)"
+    },
+    (9, 9): {
+        # "0": "data not modified by post processing"
+        "1": "data modified by post processing",
+    },
+    (10, 10): {"1": "Configuration changed, for 1 min"},
+    (11, 11): {
+        # "0": "No PMU trigger"
+        "1": "PMU trigger detected",
+    },
+    (12, 12): {
+        # "0": "Data sort by time stamp",
+        "1": "Data sort by arrival"
+    },
+    (13, 13): {
+        # "0":  "when in sync with a UTC traceable time source",
+        "1": "not in sync with a UTC traceable time source"
+    },
+    (14, 15): {
+        # "00" : "good measurement data, no errors",
+        "01": "PMU error. No information about data",
+        "10": "PMU in test mode (do not use values) or absent data tags have been inserted (do not use values)",
+        "11": "PMU error (do not use values)",
+    },
+    (16, 16): {"1": "Device error (including configuration error)"},
+    # GPA extended bits
+    (17, 17): {
+        # "0": "Data sort by time stamp",
+        "1": "Data sort by arrival"
+    },
+    (18, 18): {
+        # "0": "Synchronization is valid",
+        "1": "Synchronization is not valid"
+    },
+    (19, 19): {"1": "Data is invalid or device is in test mode"},
+    (20, 20): {
+        "1": "Data was discarded from real-time stream due to late arrival",
+        # "0": "Data was not discarded"
+    },
+}
 
 
 ##########################################################################
@@ -124,7 +195,7 @@ StreamTypeMap = {
 ##########################################################################
 def describe_streams(
     streams: List[Stream], display_annotations=False, filter_annotations=None
-    ):
+):
     """
     This function displays streams info such as collection, UUID, tags and annotations in Dataframe format.
 
@@ -164,7 +235,7 @@ def describe_streams(
     if filter_annotations is not None:
         if not isinstance(filter_annotations, list) or not all(
             isinstance(annotation, str) for annotation in filter_annotations
-            ):
+        ):
             raise TypeError("filter_annotations has to be a list of str.")
 
         # find filter_annotations that are not in "annotations", this might break if python version is below 3.7
@@ -173,14 +244,14 @@ def describe_streams(
             annotation
             for annotation in filter_annotations
             if annotation not in table_df.columns[6:]
-            ]
+        ]
         if len(not_found_annotations) > 0:
             raise ValueError(f"{not_found_annotations} not found in annotations.")
 
         table_df = table_df[
             ["collection", "UUID", "name", "unit", "distiller", "ingress"]
             + filter_annotations
-            ]
+        ]
 
     return table_df
 
@@ -227,16 +298,16 @@ def find_samplerate(stream, pw=50, update=False, version=0):
     # there's more than 10 windows)
     windows = stream.aligned_windows(
         start, end, pw, version=version
-        )  # returns list of tuples
+    )  # returns list of tuples
     if len(windows) > 10:
         windows = windows[1:-2:2]
         warnings.warn(
             f" {stream.uuid.hex}: calculating sample rate from every other window of"
             f"pointwidht = {pw})"
-            )
+        )
     Fs = [
         _find_sampling(stream, _[0].time, _[0].time + n_range, version) for _ in windows
-        ]
+    ]
     Fs = np.mean([_ for _ in Fs if _])
     if np.isnan(Fs):
         warnings.warn(f" {stream.uuid.hex} has no data to calculate sampling rate from")
@@ -247,7 +318,49 @@ def find_samplerate(stream, pw=50, update=False, version=0):
         return Fs
 
 
-# StreamType from Unit
+def print_status_code_description(status_code: int):
+    """
+    Print out the description of the STAT/FLAG stream from c37 bit mapping.
+
+    Parameters
+    ----------
+    status_code : int
+
+    Returns
+    -------
+
+    Examples
+    --------
+    >>> print_status_code_description(4)
+    4 = 0010 0000 0000 0000 0000 0
+     - Magnitude high
+     - Data sort by time stamp
+
+    >>> print_status_code_description(557056)
+    557056 = 0000 0000 0000 0001 0001 0
+     - Manual
+     - Data sort by time stamp
+     - PMU error. No information about data
+     - Data is invalid or device is in test mode
+
+    """
+    flag = f"{status_code:b}".rjust(21, "0")[::-1]
+    print(
+        f"{status_code} = ", " ".join([flag[i : i + 4] for i in range(0, len(flag), 4)])
+    )
+    for (start_idx, end_idx), descriptions in FLAG_BIT_MAP.items():
+        if flag[start_idx : end_idx + 1] in descriptions.keys():
+            print(
+                " - ",
+                descriptions.get(flag[start_idx : end_idx + 1], "Unclear on flag"),
+            )
+
+
+##########################################################################
+# StreamType class from Unit
+##########################################################################
+
+
 class StreamType:
     """
     The StreamType class is used to determine a stream's tagged unit to their corresponding general
